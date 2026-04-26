@@ -16,3 +16,21 @@ Debugging the same problem again and again is frustrating.
 This tool helps you:
 - Save issues
 - Recall solutions instantly
+
+## 🔍 Features
+
+- Save DevOps issues (error, cause, fix)
+- Search past issues instantly
+- PostgreSQL-backed storage
+
+---
+
+## 🔌 API
+
+### Save Issue
+
+POST /issue
+
+### Search Issues
+
+GET /search?error=CrashLoopBackOff
