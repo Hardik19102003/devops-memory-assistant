@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"os"
 
 	"devops-memory-assistant/internal/db"
 	"devops-memory-assistant/internal/handlers"
@@ -31,7 +32,13 @@ func main() {
 	mux.HandleFunc("/issue", handlers.SaveIssue)
 	mux.HandleFunc("/search", handlers.SearchIssue)
 
-	fmt.Println("Server running on :8080")
+	port := "8080"
 
-	http.ListenAndServe(":8080", enableCORS(mux))
+	if p := os.Getenv("PORT"); p != "" {
+		port = p
+	}
+
+	fmt.Println("Server running on :" + port)
+
+	http.ListenAndServe(":"+port, enableCORS(mux))
 }
