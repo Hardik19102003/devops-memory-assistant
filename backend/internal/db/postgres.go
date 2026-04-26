@@ -3,6 +3,7 @@ package db
 import (
 	"database/sql"
 	"log"
+	"os"
 
 	_ "github.com/lib/pq"
 )
@@ -14,7 +15,7 @@ type Database struct {
 var DB *sql.DB
 
 func New() *Database {
-	connStr := "user=devops password=devops dbname=devops_memory sslmode=disable"
+	connStr := os.Getenv("DATABASE_URL")
 
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
