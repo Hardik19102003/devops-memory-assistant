@@ -1,0 +1,27 @@
+# Go
+/bin/
+/pkg/
+*.exe
+*.test
+*.out
+
+# Logs
+*.log
+
+# Env files
+.env
+
+# Node (frontend)
+node_modules/
+.next/
+dist/
+
+# OS files
+.DS_Store
+
+# Docker
+*.pid
+
+# IDE
+.vscode/
+.idea/

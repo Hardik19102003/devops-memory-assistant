@@ -1,17 +1,19 @@
 package main
 
 import (
-	"devops-memory-assistant/backend/handlers"
 	"fmt"
 	"net/http"
+
+	"devops-memory-assistant/internal/db"
+	"devops-memory-assistant/internal/handlers"
 )
 
 func main() {
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request){
-		fmt.Fprintf(w, "DevOps Memory Assistant running 🚀")
-	})
+
+	db.New()
 
 	http.HandleFunc("/issue", handlers.SaveIssue)
+
 	fmt.Println("Server running on :8080")
 	http.ListenAndServe(":8080", nil)
 }
