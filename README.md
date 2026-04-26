@@ -1,56 +1,66 @@
 # DevOps Memory Assistant 🚀
 
-A tool to store and recall DevOps issues, so you never debug the same problem twice.
+A full-stack tool to store and recall DevOps issues so you never debug the same problem twice.
 
 ---
 
-## 💡 Why this project?
+## 💡 Problem
 
-As a DevOps engineer, I often encountered recurring issues like:
-- CrashLoopBackOff
-- Misconfigurations
-- Pod failures
+While working with Kubernetes and production systems, the same issues repeat:
 
-Debugging the same problem again and again is frustrating.
+- CrashLoopBackOff  
+- Pod failures  
+- Misconfigurations  
 
-This tool helps you:
-- Save issues
-- Recall solutions instantly
+Debugging them again wastes time.
 
-## 🔍 Features
+---
 
-- Save DevOps issues (error, cause, fix)
+## 🚀 Solution
+
+This tool allows you to:
+
+- Save issues (error, cause, fix)
 - Search past issues instantly
-- PostgreSQL-backed storage
+- Reuse solutions instead of debugging again
 
 ---
 
-## 🔌 API
+## 🛠️ Tech Stack
 
-### Save Issue
-
-POST /issue
-
-### Search Issues
-
-GET /search?error=CrashLoopBackOff
+- Go (Backend API)
+- PostgreSQL (Database)
+- Next.js (Frontend)
+- Tailwind CSS (UI)
+- Framer Motion (Animations)
 
 ---
 
-## 🌐 Frontend
+## 🌐 Features
 
-- Built with Next.js
-- Gradient UI (Purple + Pink)
-- Search functionality integrated with backend
-
----
-
-## 🔄 Full Flow
-
-User → UI → API → Database → Response → UI
+- Save DevOps issues  
+- Search past issues  
+- Animated modern UI  
+- Full-stack integration  
 
 ---
 
-## 🎥 Demo (Coming Soon)
+## 📂 Project Structure
 
-(Add screenshots or video here later)
+backend/
+frontend/
+
+---
+
+## 🚧 Future Improvements
+
+- AI-based suggestions  
+- History tracking  
+- Tags & filtering  
+- Deployment  
+
+---
+
+## 📌 Status
+
+🚀 Actively building in public
