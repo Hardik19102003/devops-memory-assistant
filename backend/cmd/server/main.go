@@ -7,6 +7,8 @@ import (
 
 	"devops-memory-assistant/internal/db"
 	"devops-memory-assistant/internal/handlers"
+
+	"github.com/joho/godotenv"
 )
 
 func enableCORS(next http.Handler) http.Handler {
@@ -25,6 +27,7 @@ func enableCORS(next http.Handler) http.Handler {
 }
 
 func main() {
+	godotenv.Load()
 
 	db.New()
 

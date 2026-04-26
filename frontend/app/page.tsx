@@ -17,7 +17,7 @@ export default function Home() {
 
     try {
       const res = await fetch(
-        `process.env.NEXT_PUBLIC_API_URL/search?error=${error}`
+        `${process.env.NEXT_PUBLIC_API_URL}/search?error=${error}`
       );
       const data = await res.json();
       setResults(data);
@@ -33,7 +33,7 @@ export default function Home() {
     setMessage("");
 
     try {
-      await fetch("process.env.NEXT_PUBLIC_API_URL/issue", {
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/issue`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -129,13 +129,13 @@ export default function Home() {
       {/* Results */}
       <div className="mt-8 w-full max-w-md space-y-4">
 
-        {results.length === 0 && !loading && (
+        {(!results || results.length === 0) && !loading && (
           <p className="text-center text-gray-300">
             No results yet 👀
           </p>
         )}
 
-        {results.map((item, index) => (
+        {(results || []).map((item, index) => (
           <motion.div
             key={index}
             initial={{ opacity: 0, y: 20 }}

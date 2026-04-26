@@ -15,7 +15,11 @@ type Database struct {
 var DB *sql.DB
 
 func New() *Database {
+	log.Println("DB URL:", os.Getenv("DATABASE_URL"))
 	connStr := os.Getenv("DATABASE_URL")
+	if connStr == "" {
+		connStr = "user=devops password=devops dbname=devops_memory sslmode=disable host=localhost"
+	}
 
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
