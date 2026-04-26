@@ -17,7 +17,7 @@ export default function Home() {
 
     try {
       const res = await fetch(
-        `http://localhost:8080/search?error=${error}`
+        `process.env.NEXT_PUBLIC_API_URL/search?error=${error}`
       );
       const data = await res.json();
       setResults(data);
@@ -33,7 +33,7 @@ export default function Home() {
     setMessage("");
 
     try {
-      await fetch("http://localhost:8080/issue", {
+      await fetch("process.env.NEXT_PUBLIC_API_URL/issue", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
