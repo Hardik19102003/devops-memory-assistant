@@ -28,6 +28,8 @@ func New() *Database {
 
 	log.Println("Connected to PostgreSQL ✅")
 
+	InitDB(db) // 👈 ADD THIS LINE
+
 	DB = db
 	return &Database{DB: db}
 }
