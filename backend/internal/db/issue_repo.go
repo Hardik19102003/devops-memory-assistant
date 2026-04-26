@@ -8,11 +8,15 @@ func SaveIssue(issue models.Issue) error {
 	return err
 }
 
-func (d *Database) GetIssuesByError(errText string) ([]models.Issue, error) {
-	rows, err := d.DB.Query(
-		`SELECT id, error, cause, fix FROM issues WHERE error ILIKE '%' || $1 || '%'`,
-		errText,
-	)
+func GetIssuesByError(search string) ([]models.Issue, error) {
+
+	query := `
+	SELECT id, error, cause, fix 
+	FROM issues 
+	WHERE error ILIKE '%' || $1 || '%'
+	`
+
+	rows, err := DB.Query(query, search)
 	if err != nil {
 		return nil, err
 	}

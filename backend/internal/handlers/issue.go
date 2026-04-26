@@ -23,3 +23,17 @@ func SaveIssue(w http.ResponseWriter, r *http.Request) {
 
 	json.NewEncoder(w).Encode("Saved successfully")
 }
+
+func SearchIssue(w http.ResponseWriter, r *http.Request) {
+
+	query := r.URL.Query().Get("error")
+
+	results, err := db.GetIssuesByError(query)
+
+	if err != nil {
+		http.Error(w, "Error fetching data", 500)
+		return
+	}
+
+	json.NewEncoder(w).Encode(results)
+}

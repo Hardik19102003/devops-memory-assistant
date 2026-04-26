@@ -13,6 +13,7 @@ func main() {
 	db.New()
 
 	http.HandleFunc("/issue", handlers.SaveIssue)
+	http.HandleFunc("/search", handlers.SearchIssue)
 
 	fmt.Println("Server running on :8080")
 	http.ListenAndServe(":8080", nil)
