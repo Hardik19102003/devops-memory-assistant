@@ -34,3 +34,23 @@ POST /issue
 ### Search Issues
 
 GET /search?error=CrashLoopBackOff
+
+---
+
+## 🌐 Frontend
+
+- Built with Next.js
+- Gradient UI (Purple + Pink)
+- Search functionality integrated with backend
+
+---
+
+## 🔄 Full Flow
+
+User → UI → API → Database → Response → UI
+
+---
+
+## 🎥 Demo (Coming Soon)
+
+(Add screenshots or video here later)
