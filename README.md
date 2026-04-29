@@ -31,8 +31,15 @@ As a DevOps engineer, I kept solving the same issues again and again.
 
 This tool acts like a memory system for debugging.
 
+## 🧑‍💻 CLI Usage
+
+### Install (local)
+```bash
+cd cli
+go build -o devops-memory
+mv devops-memory /usr/local/bin/
+
 ## 🚀 Future Plans
 
-- CLI tool for terminal usage
 - AI-based suggestions
 - Tag-based filtering
