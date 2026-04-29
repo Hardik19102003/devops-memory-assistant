@@ -58,6 +58,10 @@ frontend/
 - History tracking  
 - Tags & filtering  
 - Deployment  
+- 🔍 Smart search (partial match)
+- ⚡ Live suggestions while typing
+- 💾 Save DevOps issues (error, cause, fix)
+- 🎨 Clean UI with animations
 
 ---
 
