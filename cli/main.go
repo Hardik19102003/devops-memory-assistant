@@ -1,12 +1,13 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/fatih/color"
 )
@@ -17,129 +18,110 @@ type Issue struct {
 	Fix   string `json:"fix"`
 }
 
+var API = "http://localhost:8080" // change later
+
 func main() {
 
-	// ⚙️ FLAGS
-	limit := flag.Int("limit", 5, "number of results")
-	jsonOutput := flag.Bool("json", false, "output in JSON format")
+	reader := bufio.NewReader(os.Stdin)
 
-	flag.Parse()
-	args := flag.Args()
+	for {
+		color.Magenta("\n🚀 DevOps Memory Assistant\n")
+		fmt.Println("1. Search Issue")
+		fmt.Println("2. Save Issue")
+		fmt.Println("3. Exit")
 
-	if len(args) < 1 {
-		fmt.Println("Usage:")
-		fmt.Println("  devops-memory search <error>")
-		fmt.Println("  devops-memory save <error> <cause> <fix>")
+		fmt.Print("\nEnter choice: ")
+		choice, _ := reader.ReadString('\n')
+		choice = strings.TrimSpace(choice)
+
+		switch choice {
+
+		case "1":
+			handleSearch(reader)
+
+		case "2":
+			handleSave(reader)
+
+		case "3":
+			fmt.Println("Goodbye 👋")
+			return
+
+		default:
+			color.Red("Invalid choice ❌")
+		}
+	}
+}
+
+func handleSearch(reader *bufio.Reader) {
+
+	fmt.Print("Enter error: ")
+	query, _ := reader.ReadString('\n')
+	query = strings.TrimSpace(query)
+
+	url := fmt.Sprintf("%s/search?error=%s", API, query)
+
+	resp, err := http.Get(url)
+	if err != nil {
+		color.Red("Error: %v", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	var issues []Issue
+	json.NewDecoder(resp.Body).Decode(&issues)
+
+	if len(issues) == 0 {
+		color.Yellow("No results found 👀")
 		return
 	}
 
-	command := args[0]
+	for _, issue := range issues {
+		fmt.Println("\n---------------------------")
+		color.Cyan("Error: %s", issue.Error)
+		fmt.Println("Cause:", issue.Cause)
+		color.Green("Fix: %s", issue.Fix)
+	}
+}
 
-	// 🎨 COLORS
-	red := color.New(color.FgRed).SprintFunc()
-	green := color.New(color.FgGreen).SprintFunc()
-	cyan := color.New(color.FgCyan).SprintFunc()
-	magenta := color.New(color.FgMagenta).SprintFunc()
+func handleSave(reader *bufio.Reader) {
 
-	API := "http://localhost:8080" // change to deployed later
+	fmt.Print("Enter error: ")
+	errorText, _ := reader.ReadString('\n')
 
-	// =========================
-	// 🔍 SEARCH COMMAND
-	// =========================
-	if command == "search" {
+	fmt.Print("Enter cause: ")
+	causeText, _ := reader.ReadString('\n')
 
-		if len(args) < 2 {
-			fmt.Println("Usage: devops-memory search <error>")
-			return
-		}
+	fmt.Print("Enter fix: ")
+	fixText, _ := reader.ReadString('\n')
 
-		query := args[1]
-
-		url := fmt.Sprintf("%s/search?error=%s", API, query)
-
-		resp, err := http.Get(url)
-		if err != nil {
-			fmt.Println("Error:", err)
-			return
-		}
-		defer resp.Body.Close()
-
-		var issues []Issue
-		err = json.NewDecoder(resp.Body).Decode(&issues)
-		if err != nil {
-			fmt.Println("Failed to parse response")
-			return
-		}
-
-		if len(issues) > *limit {
-			issues = issues[:*limit]
-		}
-
-		if *jsonOutput {
-			json.NewEncoder(os.Stdout).Encode(issues)
-			return
-		}
-
-		fmt.Println(magenta("🔍 DevOps Memory Assistant Results\n"))
-
-		if len(issues) == 0 {
-			color.Yellow("No results found 👀")
-			return
-		}
-
-		for _, issue := range issues {
-			fmt.Println("--------------------------------------------------")
-			fmt.Println(cyan("Error:"), red(issue.Error))
-			fmt.Println(cyan("Cause:"), issue.Cause)
-			fmt.Println(cyan("Fix:"), green(issue.Fix))
-		}
+	issue := Issue{
+		Error: strings.TrimSpace(errorText),
+		Cause: strings.TrimSpace(causeText),
+		Fix:   strings.TrimSpace(fixText),
 	}
 
-	// =========================
-	// 💾 SAVE COMMAND
-	// =========================
-	if command == "save" {
+	body, _ := json.Marshal(issue)
 
-		if len(args) < 4 {
-			fmt.Println(`Usage: devops-memory save "error" "cause" "fix"`)
-			return
-		}
-
-		errorText := args[1]
-		causeText := args[2]
-		fixText := args[3]
-
-		issue := Issue{
-			Error: errorText,
-			Cause: causeText,
-			Fix:   fixText,
-		}
-
-		body, _ := json.Marshal(issue)
-
-		resp, err := http.Post(API+"/issue", "application/json", bytes.NewBuffer(body))
-		if err != nil {
-			fmt.Println("Error:", err)
-			return
-		}
-		defer resp.Body.Close()
-
-		var response map[string]interface{}
-		json.NewDecoder(resp.Body).Decode(&response)
-
-		// 🧠 HANDLE SIMILAR ISSUE
-		if existing, ok := response["existing"]; ok {
-			fmt.Println(color.YellowString("⚠️ Similar issue already exists!\n"))
-
-			ex := existing.(map[string]interface{})
-
-			fmt.Println(cyan("Error:"), red(ex["error"]))
-			fmt.Println(cyan("Cause:"), ex["cause"])
-			fmt.Println(cyan("Fix:"), green(ex["fix"]))
-			return
-		}
-
-		// ✅ SUCCESS
-		fmt.Println(color.GreenString("✅ Issue saved successfully!"))
+	resp, err := http.Post(API+"/issue", "application/json", bytes.NewBuffer(body))
+	if err != nil {
+		color.Red("Error: %v", err)
+		return
 	}
+	defer resp.Body.Close()
+
+	var response map[string]interface{}
+	json.NewDecoder(resp.Body).Decode(&response)
+
+	if existing, ok := response["existing"]; ok {
+		color.Yellow("\n⚠️ Similar issue already exists!\n")
+
+		ex := existing.(map[string]interface{})
+
+		color.Cyan("Error: %v", ex["error"])
+		fmt.Println("Cause:", ex["cause"])
+		color.Green("Fix: %v", ex["fix"])
+		return
+	}
+
+	color.Green("\n✅ Issue saved successfully!")
 }
