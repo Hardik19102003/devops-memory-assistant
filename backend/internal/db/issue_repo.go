@@ -37,3 +37,23 @@ func SearchIssue(query string) ([]models.Issue, error) {
 
 	return issues, nil
 }
+
+func FindSimilarIssue(query string) (*models.Issue, error) {
+	searchTerm := "%" + query + "%"
+
+	row := DB.QueryRow(`
+		SELECT error, cause, fix
+		FROM issues
+		WHERE error ILIKE $1
+		LIMIT 1
+	`, searchTerm)
+
+	var issue models.Issue
+	err := row.Scan(&issue.Error, &issue.Cause, &issue.Fix)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &issue, nil
+}

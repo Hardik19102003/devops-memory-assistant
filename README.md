@@ -1,70 +1,38 @@
-# DevOps Memory Assistant 🚀
+# 🚀 DevOps Memory Assistant
 
-A full-stack tool to store and recall DevOps issues so you never debug the same problem twice.
+A tool to store, search, and reuse DevOps troubleshooting knowledge.
 
----
+## ✨ Features
 
-## 💡 Problem
-
-While working with Kubernetes and production systems, the same issues repeat:
-
-- CrashLoopBackOff  
-- Pod failures  
-- Misconfigurations  
-
-Debugging them again wastes time.
-
----
-
-## 🚀 Solution
-
-This tool allows you to:
-
-- Save issues (error, cause, fix)
-- Search past issues instantly
-- Reuse solutions instead of debugging again
-
----
+- 🔍 Smart search (partial match with ILIKE)
+- ⚡ Live suggestions while typing
+- 🧠 Similar issue detection (avoid duplicate debugging)
+- 💾 Save issues (error, cause, fix)
+- 🎨 Clean UI with animations
 
 ## 🛠️ Tech Stack
 
-- Go (Backend API)
-- PostgreSQL (Database)
-- Next.js (Frontend)
-- Tailwind CSS (UI)
-- Framer Motion (Animations)
+- Backend: Go (Golang)
+- Frontend: Next.js
+- Database: PostgreSQL
+- Deployment: Render + Vercel
 
----
+## 🌐 Live Demo
 
-## 🌐 Features
+https://devops-memory-assistant-9cjv-fy49oacvz.vercel.app/
 
-- Save DevOps issues  
-- Search past issues  
-- Animated modern UI  
-- Full-stack integration  
+## 📂 GitHub
 
----
+https://github.com/Hardik19102003/devops-memory-assistant.git
 
-## 📂 Project Structure
+## 💡 Why this project?
 
-backend/
-frontend/
+As a DevOps engineer, I kept solving the same issues again and again.
 
----
+This tool acts like a memory system for debugging.
 
-## 🚧 Future Improvements
+## 🚀 Future Plans
 
-- AI-based suggestions  
-- History tracking  
-- Tags & filtering  
-- Deployment  
-- 🔍 Smart search (partial match)
-- ⚡ Live suggestions while typing
-- 💾 Save DevOps issues (error, cause, fix)
-- 🎨 Clean UI with animations
-
----
-
-## 📌 Status
-
-🚀 Actively building in public
+- CLI tool for terminal usage
+- AI-based suggestions
+- Tag-based filtering

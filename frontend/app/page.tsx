@@ -12,6 +12,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [searched, setSearched] = useState(false);
+  const [similarIssue, setSimilarIssue] = useState<any | null>(null);
 
   const API = process.env.NEXT_PUBLIC_API_URL;
 
@@ -37,9 +38,10 @@ export default function Home() {
   const handleSave = async () => {
     setLoading(true);
     setMessage("");
+    setSimilarIssue(null);
 
     try {
-      await fetch(`${API}/issue`, {
+      const res = await fetch(`${API}/issue`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -47,10 +49,17 @@ export default function Home() {
         body: JSON.stringify({ error, cause, fix }),
       });
 
-      setMessage("Saved successfully ✅");
-      setError("");
-      setCause("");
-      setFix("");
+      const data = await res.json();
+
+      if (data.existing) {
+        setSimilarIssue(data.existing);
+        setMessage("Similar issue found ⚠️");
+      } else {
+        setMessage("Saved successfully ✅");
+        setError("");
+        setCause("");
+        setFix("");
+      }
     } catch {
       setMessage("Failed to save ❌");
     }
@@ -170,6 +179,16 @@ export default function Home() {
           >
             {message}
           </motion.div>
+        )}
+
+        {/* SIMILAR ISSUE WARNING */}
+        {similarIssue && (
+          <div className="mt-4 bg-yellow-200 text-black p-4 rounded-lg">
+            <p className="font-bold">⚠️ Similar issue already exists</p>
+            <p><strong>Error:</strong> {similarIssue.error}</p>
+            <p><strong>Cause:</strong> {similarIssue.cause}</p>
+            <p><strong>Fix:</strong> {similarIssue.fix}</p>
+          </div>
         )}
       </motion.div>
 

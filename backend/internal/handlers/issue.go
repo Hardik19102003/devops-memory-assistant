@@ -9,19 +9,33 @@ import (
 )
 
 func SaveIssue(w http.ResponseWriter, r *http.Request) {
-
 	var issue models.Issue
 
 	json.NewDecoder(r.Body).Decode(&issue)
 
-	err := db.SaveIssue(issue)
+	// 🔍 Step 1: Check similar issue
+	existing, err := db.FindSimilarIssue(issue.Error)
+
+	if err == nil && existing != nil {
+		// 👇 Return suggestion instead of saving
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"message": "Similar issue found",
+			"existing": existing,
+		})
+		return
+	}
+
+	// 💾 Step 2: Save if not found
+	err = db.SaveIssue(issue)
 
 	if err != nil {
 		http.Error(w, "Error saving", 500)
 		return
 	}
 
-	json.NewEncoder(w).Encode("Saved successfully")
+	json.NewEncoder(w).Encode(map[string]string{
+		"message": "Saved successfully",
+	})
 }
 
 func SearchIssue(w http.ResponseWriter, r *http.Request) {
