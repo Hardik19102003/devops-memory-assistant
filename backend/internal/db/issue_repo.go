@@ -8,26 +8,31 @@ func SaveIssue(issue models.Issue) error {
 	return err
 }
 
-func GetIssuesByError(search string) ([]models.Issue, error) {
+func SearchIssue(query string) ([]models.Issue, error) {
+	issues := []models.Issue{}
 
-	query := `
-	SELECT id, error, cause, fix 
-	FROM issues 
-	WHERE error ILIKE '%' || $1 || '%'
-	`
+	searchTerm := "%" + query + "%"
 
-	rows, err := DB.Query(query, search)
+	rows, err := DB.Query(`
+		SELECT error, cause, fix
+		FROM issues
+		WHERE error ILIKE $1
+		   OR cause ILIKE $1
+		   OR fix ILIKE $1
+	`, searchTerm)
+
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var issues []models.Issue
-
 	for rows.Next() {
-		var i models.Issue
-		rows.Scan(&i.ID, &i.Error, &i.Cause, &i.Fix)
-		issues = append(issues, i)
+		var issue models.Issue
+		err := rows.Scan(&issue.Error, &issue.Cause, &issue.Fix)
+		if err != nil {
+			return nil, err
+		}
+		issues = append(issues, issue)
 	}
 
 	return issues, nil

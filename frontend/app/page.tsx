@@ -8,17 +8,22 @@ export default function Home() {
   const [cause, setCause] = useState("");
   const [fix, setFix] = useState("");
   const [results, setResults] = useState<any[]>([]);
+  const [suggestions, setSuggestions] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [searched, setSearched] = useState(false);
 
+  const API = process.env.NEXT_PUBLIC_API_URL;
+
+  // 🔍 SEARCH
   const handleSearch = async () => {
     setLoading(true);
     setMessage("");
+    setSearched(true);
+    setResults([]);
 
     try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/search?error=${error}`
-      );
+      const res = await fetch(`${API}/search?error=${error}`);
       const data = await res.json();
       setResults(data);
     } catch {
@@ -28,12 +33,13 @@ export default function Home() {
     setLoading(false);
   };
 
+  // 💾 SAVE
   const handleSave = async () => {
     setLoading(true);
     setMessage("");
 
     try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/issue`, {
+      await fetch(`${API}/issue`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -52,13 +58,30 @@ export default function Home() {
     setLoading(false);
   };
 
+  // ⚡ LIVE SUGGESTIONS
+  const handleInputChange = async (value: string) => {
+    setError(value);
+
+    if (value.length > 2) {
+      try {
+        const res = await fetch(`${API}/search?error=${value}`);
+        const data = await res.json();
+        setSuggestions(data);
+      } catch {
+        setSuggestions([]);
+      }
+    } else {
+      setSuggestions([]);
+    }
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       className="min-h-screen bg-gradient-to-br from-purple-900 via-purple-800 to-pink-700 text-white flex flex-col items-center p-6"
     >
-
+      {/* TITLE */}
       <motion.h1
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
@@ -67,19 +90,41 @@ export default function Home() {
         DevOps Memory Assistant 🚀
       </motion.h1>
 
+      {/* FORM */}
       <motion.div
         initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         className="bg-white/10 backdrop-blur-lg p-6 rounded-2xl shadow-lg w-full max-w-md space-y-4"
       >
+        {/* ERROR INPUT */}
+        <div>
+          <input
+            value={error}
+            onChange={(e) => handleInputChange(e.target.value)}
+            placeholder="Error (e.g. CrashLoopBackOff)"
+            className="w-full p-3 rounded-lg bg-white/90 text-black focus:ring-2 focus:ring-pink-400"
+          />
 
-        <input
-          value={error}
-          onChange={(e) => setError(e.target.value)}
-          placeholder="Error (e.g. CrashLoopBackOff)"
-          className="w-full p-3 rounded-lg bg-white/90 text-black focus:ring-2 focus:ring-pink-400"
-        />
+          {/* 🔥 Suggestions */}
+          {suggestions && suggestions.length > 0 && (
+            <div className="bg-white text-black rounded-lg mt-2 shadow-lg max-h-40 overflow-y-auto">
+              {suggestions.map((item, index) => (
+                <div
+                  key={index}
+                  className="p-2 hover:bg-gray-200 cursor-pointer"
+                  onClick={() => {
+                    setError(item.error);
+                    setSuggestions([]);
+                  }}
+                >
+                  {item.error}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
+        {/* CAUSE */}
         <input
           value={cause}
           onChange={(e) => setCause(e.target.value)}
@@ -87,6 +132,7 @@ export default function Home() {
           className="w-full p-3 rounded-lg bg-white/90 text-black"
         />
 
+        {/* FIX */}
         <input
           value={fix}
           onChange={(e) => setFix(e.target.value)}
@@ -94,6 +140,7 @@ export default function Home() {
           className="w-full p-3 rounded-lg bg-white/90 text-black"
         />
 
+        {/* BUTTONS */}
         <div className="flex gap-4">
           <motion.button
             whileTap={{ scale: 0.95 }}
@@ -114,6 +161,7 @@ export default function Home() {
           </motion.button>
         </div>
 
+        {/* MESSAGE */}
         {message && (
           <motion.div
             initial={{ opacity: 0 }}
@@ -123,15 +171,13 @@ export default function Home() {
             {message}
           </motion.div>
         )}
-
       </motion.div>
 
-      {/* Results */}
+      {/* RESULTS */}
       <div className="mt-8 w-full max-w-md space-y-4">
-
-        {(!results || results.length === 0) && !loading && (
+        {searched && results && results.length === 0 && !loading && (
           <p className="text-center text-gray-300">
-            No results yet 👀
+            No results found 👀
           </p>
         )}
 
@@ -143,13 +189,16 @@ export default function Home() {
             transition={{ delay: index * 0.1 }}
             className="bg-white/10 backdrop-blur-lg p-4 rounded-xl border border-white/20 hover:scale-[1.03] transition"
           >
-            <p><strong>Error:</strong> {item.error}</p>
-            <p><strong>Cause:</strong> {item.cause}</p>
-            <p><strong>Fix:</strong> {item.fix}</p>
+            <p className="text-pink-300 font-semibold">{item.error}</p>
+            <p className="text-sm text-gray-200">
+              Cause: {item.cause}
+            </p>
+            <p className="text-sm text-green-300">
+              Fix: {item.fix}
+            </p>
           </motion.div>
         ))}
       </div>
-
     </motion.div>
   );
 }
