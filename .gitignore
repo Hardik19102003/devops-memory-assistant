@@ -25,3 +25,10 @@ dist/
 # IDE
 .vscode/
 .idea/
+
+# Binaries
+devops-memory
+devops-memory-linux
+
+# Mac
+.DS_Store

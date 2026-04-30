@@ -18,7 +18,36 @@ type Issue struct {
 	Fix   string `json:"fix"`
 }
 
-var API = "http://localhost:8080" // change later
+type Config struct {
+	APIURL string `json:"api_url"`
+}
+
+func loadConfig() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "http://localhost:8080"
+	}
+
+	path := home + "/.devops-memory/config.json"
+
+	file, err := os.Open(path)
+	if err != nil {
+		fmt.Println("⚠️ Config not found, using default localhost")
+		return "http://localhost:8080"
+	}
+	defer file.Close()
+
+	var config Config
+	err = json.NewDecoder(file).Decode(&config)
+	if err != nil {
+		fmt.Println("⚠️ Invalid config, using default localhost")
+		return "http://localhost:8080"
+	}
+
+	return config.APIURL
+}
+
+var API = loadConfig()
 
 func main() {
 
