@@ -5,12 +5,16 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"strings"
 
 	"github.com/fatih/color"
 )
+
+var version = "v0.2.0"
 
 type Issue struct {
 	Error string `json:"error"`
@@ -22,25 +26,22 @@ type Config struct {
 	APIURL string `json:"api_url"`
 }
 
+// 🔧 Load config
 func loadConfig() string {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "http://localhost:8080"
-	}
-
+	home, _ := os.UserHomeDir()
 	path := home + "/.devops-memory/config.json"
 
 	file, err := os.Open(path)
 	if err != nil {
-		fmt.Println("⚠️ Config not found, using default localhost")
+		fmt.Println("⚠️ Using default localhost API")
 		return "http://localhost:8080"
 	}
 	defer file.Close()
 
 	var config Config
-	err = json.NewDecoder(file).Decode(&config)
-	if err != nil {
-		fmt.Println("⚠️ Invalid config, using default localhost")
+	json.NewDecoder(file).Decode(&config)
+
+	if config.APIURL == "" {
 		return "http://localhost:8080"
 	}
 
@@ -51,6 +52,43 @@ var API = loadConfig()
 
 func main() {
 
+	// 🔥 COMMAND MODE
+	if len(os.Args) > 1 {
+		command := os.Args[1]
+
+		switch command {
+
+		case "version":
+			fmt.Println("DevOps Memory CLI version:", version)
+			return
+
+		case "update":
+			updateCLI()
+			return
+
+		case "search":
+			if len(os.Args) < 3 {
+				fmt.Println("Usage: devops-memory search <error>")
+				return
+			}
+			runSearch(os.Args[2])
+			return
+
+		case "save":
+			if len(os.Args) < 5 {
+				fmt.Println(`Usage: devops-memory save "error" "cause" "fix"`)
+				return
+			}
+			runSave(os.Args[2], os.Args[3], os.Args[4])
+			return
+		}
+	}
+
+	// 🧠 INTERACTIVE MODE
+	runInteractive()
+}
+
+func runInteractive() {
 	reader := bufio.NewReader(os.Stdin)
 
 	for {
@@ -66,10 +104,25 @@ func main() {
 		switch choice {
 
 		case "1":
-			handleSearch(reader)
+			fmt.Print("Enter error: ")
+			query, _ := reader.ReadString('\n')
+			runSearch(strings.TrimSpace(query))
 
 		case "2":
-			handleSave(reader)
+			fmt.Print("Enter error: ")
+			errText, _ := reader.ReadString('\n')
+
+			fmt.Print("Enter cause: ")
+			causeText, _ := reader.ReadString('\n')
+
+			fmt.Print("Enter fix: ")
+			fixText, _ := reader.ReadString('\n')
+
+			runSave(
+				strings.TrimSpace(errText),
+				strings.TrimSpace(causeText),
+				strings.TrimSpace(fixText),
+			)
 
 		case "3":
 			fmt.Println("Goodbye 👋")
@@ -81,12 +134,8 @@ func main() {
 	}
 }
 
-func handleSearch(reader *bufio.Reader) {
-
-	fmt.Print("Enter error: ")
-	query, _ := reader.ReadString('\n')
-	query = strings.TrimSpace(query)
-
+// 🔍 SEARCH
+func runSearch(query string) {
 	url := fmt.Sprintf("%s/search?error=%s", API, query)
 
 	resp, err := http.Get(url)
@@ -112,21 +161,13 @@ func handleSearch(reader *bufio.Reader) {
 	}
 }
 
-func handleSave(reader *bufio.Reader) {
-
-	fmt.Print("Enter error: ")
-	errorText, _ := reader.ReadString('\n')
-
-	fmt.Print("Enter cause: ")
-	causeText, _ := reader.ReadString('\n')
-
-	fmt.Print("Enter fix: ")
-	fixText, _ := reader.ReadString('\n')
+// 💾 SAVE
+func runSave(errorText, causeText, fixText string) {
 
 	issue := Issue{
-		Error: strings.TrimSpace(errorText),
-		Cause: strings.TrimSpace(causeText),
-		Fix:   strings.TrimSpace(fixText),
+		Error: errorText,
+		Cause: causeText,
+		Fix:   fixText,
 	}
 
 	body, _ := json.Marshal(issue)
@@ -141,6 +182,7 @@ func handleSave(reader *bufio.Reader) {
 	var response map[string]interface{}
 	json.NewDecoder(resp.Body).Decode(&response)
 
+	// 🧠 Similar issue detection
 	if existing, ok := response["existing"]; ok {
 		color.Yellow("\n⚠️ Similar issue already exists!\n")
 
@@ -153,4 +195,30 @@ func handleSave(reader *bufio.Reader) {
 	}
 
 	color.Green("\n✅ Issue saved successfully!")
+}
+
+// 🔄 UPDATE
+func updateCLI() {
+
+	fmt.Println("🔄 Updating DevOps Memory CLI...")
+
+	url := "https://github.com/Hardik19102003/devops-memory-assistant/releases/latest/download/devops-memory"
+
+	resp, err := http.Get(url)
+	if err != nil {
+		fmt.Println("Download error:", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	out, _ := os.Create("/tmp/devops-memory")
+	defer out.Close()
+
+	io.Copy(out, resp.Body)
+
+	os.Chmod("/tmp/devops-memory", 0755)
+
+	exec.Command("sudo", "mv", "/tmp/devops-memory", "/usr/local/bin/devops-memory").Run()
+
+	fmt.Println("✅ Updated successfully!")
 }
