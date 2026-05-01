@@ -34,6 +34,7 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/issue", handlers.SaveIssue)
 	mux.HandleFunc("/search", handlers.SearchIssue)
+	mux.HandleFunc("/suggest", handlers.SuggestIssue)
 
 	port := "8080"
 

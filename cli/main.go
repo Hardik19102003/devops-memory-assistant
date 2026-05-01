@@ -150,14 +150,37 @@ func runSearch(query string) {
 
 	if len(issues) == 0 {
 		color.Yellow("No results found 👀")
-		return
+	} else {
+		for _, issue := range issues {
+
+			if issue.Cause == "" || issue.Fix == "" {
+				continue // skip bad data
+			}
+
+			fmt.Println("\n---------------------------")
+			color.Cyan("Error: %s", issue.Error)
+			fmt.Println("Cause:", issue.Cause)
+			color.Green("Fix: %s", issue.Fix)
+		}
 	}
 
-	for _, issue := range issues {
-		fmt.Println("\n---------------------------")
-		color.Cyan("Error: %s", issue.Error)
-		fmt.Println("Cause:", issue.Cause)
-		color.Green("Fix: %s", issue.Fix)
+	// 🔥 NEW: Fetch suggestions from backend
+	suggestURL := fmt.Sprintf("%s/suggest?error=%s", API, query)
+
+	resp2, err := http.Get(suggestURL)
+	if err != nil {
+		return // silently skip if suggestion fails
+	}
+	defer resp2.Body.Close()
+
+	var suggestions []string
+	json.NewDecoder(resp2.Body).Decode(&suggestions)
+
+	if len(suggestions) > 0 {
+		color.Magenta("\n💡 Suggestions:")
+		for _, s := range suggestions {
+			fmt.Println("👉", s)
+		}
 	}
 }
 

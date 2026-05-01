@@ -13,13 +13,18 @@ func SaveIssue(w http.ResponseWriter, r *http.Request) {
 
 	json.NewDecoder(r.Body).Decode(&issue)
 
+	if issue.Error == "" || issue.Cause == "" || issue.Fix == "" {
+		http.Error(w, "All fields required", 400)
+		return
+	}
+
 	// 🔍 Step 1: Check similar issue
 	existing, err := db.FindSimilarIssue(issue.Error)
 
 	if err == nil && existing != nil {
 		// 👇 Return suggestion instead of saving
 		json.NewEncoder(w).Encode(map[string]interface{}{
-			"message": "Similar issue found",
+			"message":  "Similar issue found",
 			"existing": existing,
 		})
 		return
@@ -54,7 +59,7 @@ func SearchIssue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if results == nil {
-    	results = []models.Issue{}
+		results = []models.Issue{}
 	}
 	json.NewEncoder(w).Encode(results)
 }
