@@ -14,11 +14,13 @@ func SearchIssue(query string) ([]models.Issue, error) {
 	searchTerm := "%" + query + "%"
 
 	rows, err := DB.Query(`
-		SELECT error, cause, fix
+		SELECT error, cause, fix, created_at
 		FROM issues
 		WHERE error ILIKE $1
 		   OR cause ILIKE $1
 		   OR fix ILIKE $1
+		ORDER BY created_at DESC
+		LIMIT 5;
 	`, searchTerm)
 
 	if err != nil {
@@ -28,10 +30,17 @@ func SearchIssue(query string) ([]models.Issue, error) {
 
 	for rows.Next() {
 		var issue models.Issue
-		err := rows.Scan(&issue.Error, &issue.Cause, &issue.Fix)
+
+		err := rows.Scan(
+			&issue.Error,
+			&issue.Cause,
+			&issue.Fix,
+			&issue.CreatedAt,
+		)
 		if err != nil {
 			return nil, err
 		}
+
 		issues = append(issues, issue)
 	}
 
@@ -42,14 +51,20 @@ func FindSimilarIssue(query string) (*models.Issue, error) {
 	searchTerm := "%" + query + "%"
 
 	row := DB.QueryRow(`
-		SELECT error, cause, fix
+		SELECT error, cause, fix, created_at
 		FROM issues
 		WHERE error ILIKE $1
+		ORDER BY created_at DESC
 		LIMIT 1
 	`, searchTerm)
 
 	var issue models.Issue
-	err := row.Scan(&issue.Error, &issue.Cause, &issue.Fix)
+	err := row.Scan(
+		&issue.Error,
+		&issue.Cause,
+		&issue.Fix,
+		&issue.CreatedAt,
+	)
 
 	if err != nil {
 		return nil, err
