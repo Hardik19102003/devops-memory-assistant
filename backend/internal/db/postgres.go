@@ -32,7 +32,7 @@ func New() *Database {
 
 	log.Println("Connected to PostgreSQL ✅")
 
-	InitDB(db) // 👈 ADD THIS LINE
+	// InitDB(db) // 👈 REMOVE THIS LINE - migrations handle it now
 
 	DB = db
 	return &Database{DB: db}

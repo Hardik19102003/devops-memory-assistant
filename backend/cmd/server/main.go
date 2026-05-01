@@ -29,7 +29,9 @@ func enableCORS(next http.Handler) http.Handler {
 func main() {
 	godotenv.Load()
 
-	db.New()
+	database := db.New()
+
+	db.RunMigrations(database.DB)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/issue", handlers.SaveIssue)

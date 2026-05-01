@@ -3,6 +3,8 @@ package db
 import (
 	"database/sql"
 	"log"
+
+	"github.com/pressly/goose/v3"
 )
 
 func InitDB(db *sql.DB) {
@@ -16,5 +18,12 @@ func InitDB(db *sql.DB) {
 	`)
 	if err != nil {
 		log.Fatal("Table creation failed:", err)
+	}
+}
+
+func RunMigrations(db *sql.DB) {
+	err := goose.Up(db, "../../migrations")
+	if err != nil {
+		log.Fatal("Migration failed:", err)
 	}
 }
