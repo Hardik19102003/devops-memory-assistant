@@ -17,9 +17,12 @@ import (
 var version = "v0.2.0"
 
 type Issue struct {
-	Error string `json:"error"`
-	Cause string `json:"cause"`
-	Fix   string `json:"fix"`
+	ID    int      `json:"id"`
+	Error string   `json:"error"`
+	Cause string   `json:"cause"`
+	Fix   string   `json:"fix"`
+	Steps string   `json:"steps"`
+	Tags  []string `json:"tags"`
 }
 
 type Config struct {

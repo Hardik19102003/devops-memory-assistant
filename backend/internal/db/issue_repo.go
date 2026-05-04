@@ -1,10 +1,19 @@
 package db
 
 import "devops-memory-assistant/internal/models"
+import "github.com/lib/pq"
+import "database/sql"
 
 func SaveIssue(issue models.Issue) error {
-	query := "INSERT INTO issues (error, cause, fix) VALUES ($1, $2, $3)"
-	_, err := DB.Exec(query, issue.Error, issue.Cause, issue.Fix)
+	query := "INSERT INTO issues (error, cause, fix, steps, tags) VALUES ($1, $2, $3, $4, $5)"
+	_, err := DB.Exec(
+	query,
+	issue.Error,
+	issue.Cause,
+	issue.Fix,
+	issue.Steps,
+	pq.Array(issue.Tags), // ✅ important
+)
 	return err
 }
 
@@ -14,14 +23,21 @@ func SearchIssue(query string) ([]models.Issue, error) {
 	searchTerm := "%" + query + "%"
 
 	rows, err := DB.Query(`
-		SELECT error, cause, fix, created_at
-		FROM issues
-		WHERE error ILIKE $1
-		   OR cause ILIKE $1
-		   OR fix ILIKE $1
-		ORDER BY created_at DESC
-		LIMIT 5;
-	`, searchTerm)
+	SELECT 
+		id,
+		error,
+		cause,
+		fix,
+		COALESCE(steps, ''),
+		COALESCE(tags, '{}'::text[]),
+		created_at
+	FROM issues
+	WHERE error ILIKE $1
+	   OR cause ILIKE $1
+	   OR fix ILIKE $1
+	ORDER BY created_at DESC
+	LIMIT 5;
+`, searchTerm)
 
 	if err != nil {
 		return nil, err
@@ -32,11 +48,14 @@ func SearchIssue(query string) ([]models.Issue, error) {
 		var issue models.Issue
 
 		err := rows.Scan(
-			&issue.Error,
-			&issue.Cause,
-			&issue.Fix,
-			&issue.CreatedAt,
-		)
+	&issue.ID,
+	&issue.Error,
+	&issue.Cause,
+	&issue.Fix,
+	&issue.Steps,
+	pq.Array(&issue.Tags), // 🔥 important
+	&issue.CreatedAt,
+)
 		if err != nil {
 			return nil, err
 		}
@@ -51,8 +70,15 @@ func FindSimilarIssue(query string) (*models.Issue, error) {
 	searchTerm := "%" + query + "%"
 
 	row := DB.QueryRow(`
-		SELECT error, cause, fix, created_at
-		FROM issues
+		SELECT 
+	id,
+	error,
+	cause,
+	fix,
+	COALESCE(steps, ''),
+	COALESCE(tags, '{}'::text[]),
+	created_at
+FROM issues
 		WHERE error ILIKE $1
 		ORDER BY created_at DESC
 		LIMIT 1
@@ -60,15 +86,21 @@ func FindSimilarIssue(query string) (*models.Issue, error) {
 
 	var issue models.Issue
 	err := row.Scan(
-		&issue.Error,
-		&issue.Cause,
-		&issue.Fix,
-		&issue.CreatedAt,
-	)
+	&issue.ID,
+	&issue.Error,
+	&issue.Cause,
+	&issue.Fix,
+	&issue.Steps,
+	pq.Array(&issue.Tags), // ✅ FIX
+	&issue.CreatedAt,
+)
 
-	if err != nil {
-		return nil, err
-	}
+	if err == sql.ErrNoRows {
+	return nil, nil
+}
+if err != nil {
+	return nil, err
+}
 
 	return &issue, nil
 }

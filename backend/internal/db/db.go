@@ -19,6 +19,7 @@ func InitDB(db *sql.DB) {
 	if err != nil {
 		log.Fatal("Table creation failed:", err)
 	}
+	log.Println("DB connected (URL loaded)")
 }
 
 func RunMigrations(db *sql.DB) {
