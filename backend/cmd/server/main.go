@@ -46,5 +46,8 @@ func main() {
 
 	fmt.Println("Server running on :" + port)
 
-	http.ListenAndServe(":"+port, enableCORS(mux))
+	err := http.ListenAndServe(":"+port, enableCORS(mux))
+if err != nil {
+	panic(err)
+}
 }
