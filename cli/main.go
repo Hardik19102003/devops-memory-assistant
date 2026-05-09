@@ -52,7 +52,9 @@ func loadConfig() string {
 	return config.APIURL
 }
 
-var API = loadConfig()
+func getAPI() string {
+	return loadConfig()
+}
 
 func main() {
 
@@ -84,6 +86,7 @@ func main() {
 devops-memory save "error" "cause" "fix" "steps" "tag1,tag2"
 `)
 		return
+
 	}
 
 	tags := strings.Split(os.Args[6], ",")
@@ -97,11 +100,53 @@ devops-memory save "error" "cause" "fix" "steps" "tag1,tag2"
 	)
 
 	return
+
+	case "delete":
+	if len(os.Args) < 3 {
+		fmt.Println("Usage: devops-memory delete <id>")
+		return
+	}
+
+	id := os.Args[2]
+	runDelete(id)
+	return
 		}
 	}
 
 	// 🧠 INTERACTIVE MODE
 	runInteractive()
+}
+
+func runDelete(id string) {
+
+	url := fmt.Sprintf("%s/delete?id=%s", getAPI(), id)
+
+	req, err := http.NewRequest("DELETE", url, nil)
+	if err != nil {
+		color.Red("Error: %v", err)
+		return
+	}
+
+	req.Header.Set("Authorization", "Bearer devops-secret-key")
+
+	client := &http.Client{}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		color.Red("Error: %v", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+
+	fmt.Println(string(body))
+
+	if resp.StatusCode == 200 {
+		color.Green("✅ Issue deleted successfully")
+	} else {
+		color.Red("❌ Failed to delete issue")
+	}
 }
 
 func runInteractive() {
@@ -153,6 +198,7 @@ runSave(
 		case "3":
 			fmt.Println("Goodbye 👋")
 			return
+		
 
 		default:
 			color.Red("Invalid choice ❌")
@@ -162,7 +208,7 @@ runSave(
 
 // 🔍 SEARCH
 func runSearch(query string) {
-	url := fmt.Sprintf("%s/search?error=%s", API, query)
+	url := fmt.Sprintf("%s/search?error=%s", getAPI(), query)
 
 	resp, err := http.Get(url)
 	if err != nil {
@@ -214,7 +260,7 @@ fmt.Println("\n🕒 Created:", issue.CreatedAt)
 	}
 
 	// 🔥 NEW: Fetch suggestions from backend
-	suggestURL := fmt.Sprintf("%s/suggest?error=%s", API, query)
+	suggestURL := fmt.Sprintf("%s/suggest?error=%s", getAPI(), query)
 
 	resp2, err := http.Get(suggestURL)
 	if err != nil {
@@ -252,7 +298,7 @@ func runSave(
 
 	body, _ := json.Marshal(issue)
 
-	resp, err := http.Post(API+"/issue", "application/json", bytes.NewBuffer(body))
+	resp, err := http.Post(getAPI()+"/issue", "application/json", bytes.NewBuffer(body))
 	if err != nil {
 		color.Red("Error: %v", err)
 		return
