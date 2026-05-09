@@ -61,7 +61,7 @@ export default function Home() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: "Bearer devops-secret-key",
+          "Authorization": "Bearer devops-secret-key",
         },
         body: JSON.stringify({
           error,
