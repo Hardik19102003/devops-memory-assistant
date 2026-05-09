@@ -23,8 +23,26 @@ func InitDB(db *sql.DB) {
 }
 
 func RunMigrations(db *sql.DB) {
-	err := goose.Up(db, "../../migrations")
-	if err != nil {
-		log.Fatal("Migration failed:", err)
+
+	paths := []string{
+		"../../migrations", // local dev
+		"./migrations",     // production/render
+		"migrations",       // fallback
 	}
+
+	var err error
+
+	for _, path := range paths {
+
+		err = goose.Up(db, path)
+
+		if err == nil {
+			log.Println("Migrations ran successfully using:", path)
+			return
+		}
+
+		log.Println("Migration path failed:", path)
+	}
+
+	log.Fatal("Migration failed:", err)
 }
