@@ -1,7 +1,6 @@
 package models
 
 import (
-	"database/sql"
 	"time"
 )
 
@@ -10,7 +9,7 @@ type Issue struct {
 	Error     string         `json:"error"`
 	Cause     string         `json:"cause"`
 	Fix       string         `json:"fix"`
-	Steps     sql.NullString `json:"steps"`
+	Steps     string `json:"steps"`
 	Tags      []string       `json:"tags"`
 	CreatedAt time.Time      `json:"created_at"`
 }

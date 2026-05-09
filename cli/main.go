@@ -17,12 +17,13 @@ import (
 var version = "v0.2.0"
 
 type Issue struct {
-	ID    int      `json:"id"`
-	Error string   `json:"error"`
-	Cause string   `json:"cause"`
-	Fix   string   `json:"fix"`
-	Steps string   `json:"steps"`
-	Tags  []string `json:"tags"`
+	ID        int      `json:"id"`
+	Error     string   `json:"error"`
+	Cause     string   `json:"cause"`
+	Fix       string   `json:"fix"`
+	Steps     string   `json:"steps"`
+	Tags      []string `json:"tags"`
+	CreatedAt string   `json:"created_at"`
 }
 
 type Config struct {
@@ -78,12 +79,24 @@ func main() {
 			return
 
 		case "save":
-			if len(os.Args) < 5 {
-				fmt.Println(`Usage: devops-memory save "error" "cause" "fix"`)
-				return
-			}
-			runSave(os.Args[2], os.Args[3], os.Args[4])
-			return
+	if len(os.Args) < 7 {
+		fmt.Println(`Usage:
+devops-memory save "error" "cause" "fix" "steps" "tag1,tag2"
+`)
+		return
+	}
+
+	tags := strings.Split(os.Args[6], ",")
+
+	runSave(
+		os.Args[2],
+		os.Args[3],
+		os.Args[4],
+		os.Args[5],
+		tags,
+	)
+
+	return
 		}
 	}
 
@@ -119,13 +132,23 @@ func runInteractive() {
 			causeText, _ := reader.ReadString('\n')
 
 			fmt.Print("Enter fix: ")
-			fixText, _ := reader.ReadString('\n')
+fixText, _ := reader.ReadString('\n')
 
-			runSave(
-				strings.TrimSpace(errText),
-				strings.TrimSpace(causeText),
-				strings.TrimSpace(fixText),
-			)
+fmt.Print("Enter steps: ")
+stepsText, _ := reader.ReadString('\n')
+
+fmt.Print("Enter tags (comma separated): ")
+tagsText, _ := reader.ReadString('\n')
+
+tags := strings.Split(strings.TrimSpace(tagsText), ",")
+
+runSave(
+	strings.TrimSpace(errText),
+	strings.TrimSpace(causeText),
+	strings.TrimSpace(fixText),
+	strings.TrimSpace(stepsText),
+	tags,
+)
 
 		case "3":
 			fmt.Println("Goodbye 👋")
@@ -149,7 +172,13 @@ func runSearch(query string) {
 	defer resp.Body.Close()
 
 	var issues []Issue
-	json.NewDecoder(resp.Body).Decode(&issues)
+	err = json.NewDecoder(resp.Body).Decode(&issues)
+if err != nil {
+	color.Red("JSON Decode Error: %v", err)
+	return
+}
+
+fmt.Printf("%+v\n", issues)
 
 	if len(issues) == 0 {
 		color.Yellow("No results found 👀")
@@ -161,9 +190,26 @@ func runSearch(query string) {
 			}
 
 			fmt.Println("\n---------------------------")
-			color.Cyan("Error: %s", issue.Error)
-			fmt.Println("Cause:", issue.Cause)
-			color.Green("Fix: %s", issue.Fix)
+
+color.Cyan("🚨 Error: %s", issue.Error)
+
+fmt.Println("📌 Cause:")
+fmt.Println(issue.Cause)
+
+color.Green("\n✅ Fix:")
+fmt.Println(issue.Fix)
+
+if issue.Steps != "" {
+	color.Yellow("\n🛠 Steps:")
+	fmt.Println(issue.Steps)
+}
+
+if len(issue.Tags) > 0 {
+	color.Magenta("\n🏷 Tags:")
+	fmt.Println(strings.Join(issue.Tags, ", "))
+}
+
+fmt.Println("\n🕒 Created:", issue.CreatedAt)
 		}
 	}
 
@@ -188,13 +234,21 @@ func runSearch(query string) {
 }
 
 // 💾 SAVE
-func runSave(errorText, causeText, fixText string) {
+func runSave(
+	errorText string,
+	causeText string,
+	fixText string,
+	stepsText string,
+	tags []string,
+) {
 
 	issue := Issue{
-		Error: errorText,
-		Cause: causeText,
-		Fix:   fixText,
-	}
+	Error: errorText,
+	Cause: causeText,
+	Fix:   fixText,
+	Steps: stepsText,
+	Tags:  tags,
+}
 
 	body, _ := json.Marshal(issue)
 
