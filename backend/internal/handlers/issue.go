@@ -10,8 +10,9 @@ import (
 )
 
 func SaveIssue(w http.ResponseWriter, r *http.Request) {
-	// Simple API key auth
+
 	apiKey := r.Header.Get("Authorization")
+
 	if apiKey != "Bearer devops-secret-key" {
 		log.Printf("WARN: unauthorized access attempt")
 		http.Error(w, "Unauthorized", 401)
@@ -27,25 +28,26 @@ func SaveIssue(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if issue.Error == "" || issue.Cause == "" || issue.Fix == "" {
-		log.Printf("WARN: missing required fields in issue save attempt")
+		log.Printf("WARN: missing required fields")
 		http.Error(w, "All fields required", 400)
 		return
 	}
 
-	// 🔍 Step 1: Check similar issue
+	// 🔍 Check similar issue
 	existing, err := db.FindSimilarIssue(issue.Error)
 
+	similarFound := false
+
 	if err == nil && existing != nil {
-		log.Printf("INFO: similar issue found for error: %s", issue.Error)
-		// 👇 Return suggestion instead of saving
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"message":  "Similar issue found",
-			"existing": existing,
-		})
-		return
+		log.Printf(
+			"INFO: similar issue found for error: %s",
+			issue.Error,
+		)
+
+		similarFound = true
 	}
 
-	// 💾 Step 2: Save if not found
+	// 💾 Save anyway
 	err = db.SaveIssue(issue)
 
 	if err != nil {
@@ -55,8 +57,20 @@ func SaveIssue(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Printf("INFO: successfully saved issue: %s", issue.Error)
+
+	// ✅ Single response only
+	if similarFound {
+
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"message": "Saved successfully, but similar issue exists ⚠️",
+			"similar": existing,
+		})
+
+		return
+	}
+
 	json.NewEncoder(w).Encode(map[string]string{
-		"message": "Saved successfully",
+		"message": "Saved successfully ✅",
 	})
 }
 
@@ -83,4 +97,38 @@ func SearchIssue(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("INFO: search completed for query '%s', found %d results", query, len(results))
 	json.NewEncoder(w).Encode(results)
+}
+
+func DeleteIssue(w http.ResponseWriter, r *http.Request) {
+
+	apiKey := r.Header.Get("Authorization")
+
+	if apiKey != "Bearer devops-secret-key" {
+		http.Error(w, "Unauthorized", 401)
+		return
+	}
+
+	id := r.URL.Query().Get("id")
+
+	if id == "" {
+		http.Error(w, "Missing issue ID", 400)
+		return
+	}
+
+	err := db.DeleteIssue(id)
+
+	if err != nil {
+		log.Printf("ERROR: failed to delete issue: %v", err)
+
+		http.Error(w, "Delete failed", 500)
+		return
+	}
+
+	log.Printf("INFO: issue deleted successfully: %s", id)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	json.NewEncoder(w).Encode(map[string]string{
+		"message": "Issue deleted successfully ✅",
+	})
 }

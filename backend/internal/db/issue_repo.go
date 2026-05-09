@@ -104,3 +104,12 @@ if err != nil {
 
 	return &issue, nil
 }
+
+func DeleteIssue(id string) error {
+
+	query := `DELETE FROM issues WHERE id = $1`
+
+	_, err := DB.Exec(query, id)
+
+	return err
+}

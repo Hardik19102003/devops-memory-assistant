@@ -15,13 +15,19 @@ func enableCORS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
 		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+
 		w.Header().Set(
-	"Access-Control-Allow-Headers",
-	"Content-Type, Authorization",
-)
+			"Access-Control-Allow-Headers",
+			"Content-Type, Authorization",
+		)
+
+		w.Header().Set(
+			"Access-Control-Allow-Methods",
+			"GET, POST, DELETE, OPTIONS",
+		)
 
 		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
 			return
 		}
 
@@ -40,6 +46,7 @@ func main() {
 	mux.HandleFunc("/issue", handlers.SaveIssue)
 	mux.HandleFunc("/search", handlers.SearchIssue)
 	mux.HandleFunc("/suggest", handlers.SuggestIssue)
+	mux.HandleFunc("/delete", handlers.DeleteIssue)
 
 	port := "8080"
 

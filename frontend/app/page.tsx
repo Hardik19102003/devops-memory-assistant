@@ -77,11 +77,11 @@ export default function Home() {
 
       const data = await res.json();
 
-      if (data.existing) {
-        setSimilarIssue(data.existing);
-        setMessage("Similar issue found ⚠️");
+      if (data.similar) {
+        setSimilarIssue(data.similar);
+        setMessage(data.message);
       } else {
-        setMessage("Saved successfully ✅");
+        setMessage(data.message || "Saved successfully ✅");
 
         setError("");
         setCause("");
@@ -113,6 +113,52 @@ export default function Home() {
       setSuggestions([]);
     }
   };
+
+  const handleDelete = async (id: number) => {
+
+  try {
+
+    const res = await fetch(
+      `${API}/delete?id=${id}`,
+      {
+        method: "DELETE",
+        headers: {
+          "Authorization": "Bearer devops-secret-key",
+        },
+      }
+    );
+
+    // 🔥 read raw response first
+    const text = await res.text();
+
+    console.log("DELETE RESPONSE:", text);
+
+    // safely parse JSON
+    let data;
+
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = {
+        message: "Issue deleted successfully ✅",
+      };
+    }
+
+    setMessage(data.message);
+
+    // 🔥 remove deleted issue instantly
+    setResults((prev) =>
+      prev.filter((item) => item.id !== id)
+    );
+
+  } catch (err) {
+
+    console.error(err);
+
+    setMessage("Failed to delete ❌");
+
+  }
+};
 
   return (
     <motion.div
@@ -328,13 +374,22 @@ export default function Home() {
               </div>
             )}
 
-            {item.created_at && (
-              <p className="text-xs text-gray-400 mt-4">
-                🕒{" "}
-                {new Date(item.created_at).toLocaleString()}
-              </p>
-            )}
+            <>
+  {item.created_at && (
+    <p className="text-xs text-gray-400 mt-4">
+      🕒 {new Date(item.created_at).toLocaleString()}
+    </p>
+  )}
+
+  <button
+    onClick={() => handleDelete(item.id)}
+    className="mt-4 bg-red-500 hover:bg-red-600 px-3 py-1 rounded text-sm"
+  >
+    🗑 Delete
+  </button>
+</>
           </motion.div>
+          
         ))}
       </div>
     </motion.div>
