@@ -3,16 +3,31 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 
+type Issue = {
+  id: number;
+  error: string;
+  cause: string;
+  fix: string;
+  steps: string;
+  tags: string[];
+  created_at: string;
+};
+
 export default function Home() {
   const [error, setError] = useState("");
   const [cause, setCause] = useState("");
   const [fix, setFix] = useState("");
-  const [results, setResults] = useState<any[]>([]);
-  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [steps, setSteps] = useState("");
+  const [tags, setTags] = useState("");
+
+  const [results, setResults] = useState<Issue[]>([]);
+  const [suggestions, setSuggestions] = useState<Issue[]>([]);
+
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [searched, setSearched] = useState(false);
-  const [similarIssue, setSimilarIssue] = useState<any | null>(null);
+
+  const [similarIssue, setSimilarIssue] = useState<Issue | null>(null);
 
   const API = process.env.NEXT_PUBLIC_API_URL;
 
@@ -26,6 +41,7 @@ export default function Home() {
     try {
       const res = await fetch(`${API}/search?error=${error}`);
       const data = await res.json();
+
       setResults(data);
     } catch {
       setMessage("Something went wrong ❌");
@@ -45,8 +61,18 @@ export default function Home() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: "Bearer devops-secret-key",
         },
-        body: JSON.stringify({ error, cause, fix }),
+        body: JSON.stringify({
+          error,
+          cause,
+          fix,
+          steps,
+          tags: tags
+            .split(",")
+            .map((tag) => tag.trim())
+            .filter(Boolean),
+        }),
       });
 
       const data = await res.json();
@@ -56,9 +82,12 @@ export default function Home() {
         setMessage("Similar issue found ⚠️");
       } else {
         setMessage("Saved successfully ✅");
+
         setError("");
         setCause("");
         setFix("");
+        setSteps("");
+        setTags("");
       }
     } catch {
       setMessage("Failed to save ❌");
@@ -75,6 +104,7 @@ export default function Home() {
       try {
         const res = await fetch(`${API}/search?error=${value}`);
         const data = await res.json();
+
         setSuggestions(data);
       } catch {
         setSuggestions([]);
@@ -114,8 +144,8 @@ export default function Home() {
             className="w-full p-3 rounded-lg bg-white/90 text-black focus:ring-2 focus:ring-pink-400"
           />
 
-          {/* 🔥 Suggestions */}
-          {suggestions && suggestions.length > 0 && (
+          {/* LIVE SUGGESTIONS */}
+          {suggestions.length > 0 && (
             <div className="bg-white text-black rounded-lg mt-2 shadow-lg max-h-40 overflow-y-auto">
               {suggestions.map((item, index) => (
                 <div
@@ -146,6 +176,22 @@ export default function Home() {
           value={fix}
           onChange={(e) => setFix(e.target.value)}
           placeholder="Fix"
+          className="w-full p-3 rounded-lg bg-white/90 text-black"
+        />
+
+        {/* STEPS */}
+        <textarea
+          value={steps}
+          onChange={(e) => setSteps(e.target.value)}
+          placeholder="Debugging steps"
+          className="w-full p-3 rounded-lg bg-white/90 text-black"
+        />
+
+        {/* TAGS */}
+        <input
+          value={tags}
+          onChange={(e) => setTags(e.target.value)}
+          placeholder="Tags (kubernetes,docker,network)"
           className="w-full p-3 rounded-lg bg-white/90 text-black"
         />
 
@@ -181,26 +227,51 @@ export default function Home() {
           </motion.div>
         )}
 
-        {/* SIMILAR ISSUE WARNING */}
+        {/* SIMILAR ISSUE */}
         {similarIssue && (
           <div className="mt-4 bg-yellow-200 text-black p-4 rounded-lg">
-            <p className="font-bold">⚠️ Similar issue already exists</p>
-            <p><strong>Error:</strong> {similarIssue.error}</p>
-            <p><strong>Cause:</strong> {similarIssue.cause}</p>
-            <p><strong>Fix:</strong> {similarIssue.fix}</p>
+            <p className="font-bold text-lg">
+              ⚠️ Similar issue already exists
+            </p>
+
+            <p className="mt-3">
+              <strong>🚨 Error:</strong>
+              <br />
+              {similarIssue.error}
+            </p>
+
+            <p className="mt-3">
+              <strong>📌 Cause:</strong>
+              <br />
+              {similarIssue.cause}
+            </p>
+
+            <p className="mt-3">
+              <strong>✅ Fix:</strong>
+              <br />
+              {similarIssue.fix}
+            </p>
+
+            {similarIssue.steps && (
+              <p className="mt-3">
+                <strong>🛠 Steps:</strong>
+                <br />
+                {similarIssue.steps}
+              </p>
+            )}
           </div>
         )}
       </motion.div>
 
       {/* RESULTS */}
       <div className="mt-8 w-full max-w-md space-y-4">
-        {searched && results && results.length === 0 && !loading && (
+        {searched && results.length === 0 && !loading && (
           <p className="text-center text-gray-300">
             No results found 👀
           </p>
         )}
 
-        {(results || []).map((item, index) => (
+        {results.map((item, index) => (
           <motion.div
             key={index}
             initial={{ opacity: 0, y: 20 }}
@@ -208,13 +279,61 @@ export default function Home() {
             transition={{ delay: index * 0.1 }}
             className="bg-white/10 backdrop-blur-lg p-4 rounded-xl border border-white/20 hover:scale-[1.03] transition"
           >
-            <p className="text-pink-300 font-semibold">{item.error}</p>
-            <p className="text-sm text-gray-200">
-              Cause: {item.cause}
+            <p className="text-pink-300 font-bold text-lg">
+              🚨 {item.error}
             </p>
-            <p className="text-sm text-green-300">
-              Fix: {item.fix}
-            </p>
+
+            <div className="mt-3">
+              <p className="text-yellow-300 font-semibold">
+                📌 Cause
+              </p>
+
+              <p className="text-sm text-gray-200">
+                {item.cause}
+              </p>
+            </div>
+
+            <div className="mt-3">
+              <p className="text-green-300 font-semibold">
+                ✅ Fix
+              </p>
+
+              <p className="text-sm text-gray-200">
+                {item.fix}
+              </p>
+            </div>
+
+            {item.steps && (
+              <div className="mt-3">
+                <p className="text-blue-300 font-semibold">
+                  🛠 Steps
+                </p>
+
+                <p className="text-sm text-gray-200 whitespace-pre-wrap">
+                  {item.steps}
+                </p>
+              </div>
+            )}
+
+            {item.tags && item.tags.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {item.tags.map((tag, idx) => (
+                  <span
+                    key={idx}
+                    className="bg-pink-500/30 text-pink-200 px-2 py-1 rounded-full text-xs"
+                  >
+                    #{tag}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {item.created_at && (
+              <p className="text-xs text-gray-400 mt-4">
+                🕒{" "}
+                {new Date(item.created_at).toLocaleString()}
+              </p>
+            )}
           </motion.div>
         ))}
       </div>
