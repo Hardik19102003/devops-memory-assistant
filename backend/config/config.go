@@ -10,7 +10,7 @@ type Config struct {
 
 func Load() Config {
 	return Config{
-		DBURL: getEnv("DB_URL", "postgres://localhost:5432/dev"),
+		DBURL: getEnv("DB_URL", "postgres://devops:devops@localhost:5432/devops_memory?sslmode=disable"),
 		PORT:  getEnv("PORT", "8080"),
 		ENV:   getEnv("ENV", "dev"),
 	}
