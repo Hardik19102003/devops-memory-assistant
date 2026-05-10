@@ -3,28 +3,18 @@ package main
 import (
 	"fmt"
 	"net/http"
-	"os"
 
+	"devops-memory-assistant/config"
 	"devops-memory-assistant/internal/db"
 	"devops-memory-assistant/internal/handlers"
-
-	"github.com/joho/godotenv"
 )
 
 func enableCORS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
 		w.Header().Set("Access-Control-Allow-Origin", "*")
-
-		w.Header().Set(
-			"Access-Control-Allow-Headers",
-			"Content-Type, Authorization",
-		)
-
-		w.Header().Set(
-			"Access-Control-Allow-Methods",
-			"GET, POST, DELETE, OPTIONS",
-		)
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
 
 		if r.Method == "OPTIONS" {
 			w.WriteHeader(http.StatusOK)
@@ -36,9 +26,13 @@ func enableCORS(next http.Handler) http.Handler {
 }
 
 func main() {
-	godotenv.Load()
+	cfg := config.Load()
 
-	database := db.New()
+	fmt.Println("DB:", cfg.DBURL)
+	fmt.Println("PORT:", cfg.PORT)
+
+	// 🔥 PASS CONFIG TO DB (important change)
+	database := db.New(cfg.DBURL)
 
 	db.RunMigrations(database.DB)
 
@@ -48,16 +42,10 @@ func main() {
 	mux.HandleFunc("/suggest", handlers.SuggestIssue)
 	mux.HandleFunc("/delete", handlers.DeleteIssue)
 
-	port := "8080"
+	fmt.Println("Server running on :", cfg.PORT)
 
-	if p := os.Getenv("PORT"); p != "" {
-		port = p
+	err := http.ListenAndServe(":"+cfg.PORT, enableCORS(mux))
+	if err != nil {
+		panic(err)
 	}
-
-	fmt.Println("Server running on :" + port)
-
-	err := http.ListenAndServe(":"+port, enableCORS(mux))
-if err != nil {
-	panic(err)
-}
 }

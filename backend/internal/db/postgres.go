@@ -3,7 +3,6 @@ package db
 import (
 	"database/sql"
 	"log"
-	"os"
 
 	_ "github.com/lib/pq"
 )
@@ -14,9 +13,12 @@ type Database struct {
 
 var DB *sql.DB
 
-func New() *Database {
-	log.Println("DB URL:", os.Getenv("DATABASE_URL"))
-	connStr := os.Getenv("DATABASE_URL")
+func New(dbURL string) *Database {
+
+	// ✅ use passed parameter ONLY
+	connStr := dbURL
+
+	// fallback (optional safety)
 	if connStr == "" {
 		connStr = "user=devops password=devops dbname=devops_memory sslmode=disable host=localhost"
 	}
@@ -31,8 +33,6 @@ func New() *Database {
 	}
 
 	log.Println("Connected to PostgreSQL ✅")
-
-	// InitDB(db) // 👈 REMOVE THIS LINE - migrations handle it now
 
 	DB = db
 	return &Database{DB: db}
