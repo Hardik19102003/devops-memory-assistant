@@ -28,20 +28,20 @@ func SaveIssue(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if issue.Error == "" {
-	log.Printf("WARN: missing error field")
-	http.Error(w, "Error field required", 400)
-	return
-}
+		log.Printf("WARN: missing error field")
+		http.Error(w, "Error field required", 400)
+		return
+	}
 
-if len(issue.Causes) == 0 {
-	http.Error(w, "At least one cause required", 400)
-	return
-}
+	if len(issue.Causes) == 0 {
+		http.Error(w, "At least one cause required", 400)
+		return
+	}
 
-if len(issue.Fixes) == 0 {
-	http.Error(w, "At least one fix required", 400)
-	return
-}
+	if len(issue.Fixes) == 0 {
+		http.Error(w, "At least one fix required", 400)
+		return
+	}
 
 	// 🔍 Check similar issue
 	existing, err := db.FindSimilarIssue(issue.Error)

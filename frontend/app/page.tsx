@@ -6,18 +6,18 @@ import { motion } from "framer-motion";
 type Issue = {
   id: number;
   error: string;
-  cause: string;
-  fix: string;
-  steps: string;
+  causes: string[];
+  fixes: string[];
+  debug_steps: string[];
   tags: string[];
   created_at: string;
 };
 
 export default function Home() {
   const [error, setError] = useState("");
-  const [cause, setCause] = useState("");
-  const [fix, setFix] = useState("");
-  const [steps, setSteps] = useState("");
+  const [causes, setCauses] = useState("");
+  const [fixes, setFixes] = useState("");
+  const [debugSteps, setDebugSteps] = useState("");
   const [tags, setTags] = useState("");
 
   const [results, setResults] = useState<Issue[]>([]);
@@ -65,9 +65,22 @@ export default function Home() {
         },
         body: JSON.stringify({
           error,
-          cause,
-          fix,
-          steps,
+
+          causes: causes
+            .split("\n")
+            .map((c) => c.trim())
+            .filter(Boolean),
+
+          fixes: fixes
+            .split("\n")
+            .map((f) => f.trim())
+            .filter(Boolean),
+
+          debug_steps: debugSteps
+            .split("\n")
+            .map((s) => s.trim())
+            .filter(Boolean),
+
           tags: tags
             .split(",")
             .map((tag) => tag.trim())
@@ -84,9 +97,9 @@ export default function Home() {
         setMessage(data.message || "Saved successfully ✅");
 
         setError("");
-        setCause("");
-        setFix("");
-        setSteps("");
+        setCauses("");
+        setFixes("");
+        setDebugSteps("");
         setTags("");
       }
     } catch {
@@ -116,49 +129,49 @@ export default function Home() {
 
   const handleDelete = async (id: number) => {
 
-  try {
-
-    const res = await fetch(
-      `${API}/delete?id=${id}`,
-      {
-        method: "DELETE",
-        headers: {
-          "Authorization": "Bearer devops-secret-key",
-        },
-      }
-    );
-
-    // 🔥 read raw response first
-    const text = await res.text();
-
-    console.log("DELETE RESPONSE:", text);
-
-    // safely parse JSON
-    let data;
-
     try {
-      data = JSON.parse(text);
-    } catch {
-      data = {
-        message: "Issue deleted successfully ✅",
-      };
+
+      const res = await fetch(
+        `${API}/delete?id=${id}`,
+        {
+          method: "DELETE",
+          headers: {
+            "Authorization": "Bearer devops-secret-key",
+          },
+        }
+      );
+
+      // 🔥 read raw response first
+      const text = await res.text();
+
+      console.log("DELETE RESPONSE:", text);
+
+      // safely parse JSON
+      let data;
+
+      try {
+        data = JSON.parse(text);
+      } catch {
+        data = {
+          message: "Issue deleted successfully ✅",
+        };
+      }
+
+      setMessage(data.message);
+
+      // 🔥 remove deleted issue instantly
+      setResults((prev) =>
+        prev.filter((item) => item.id !== id)
+      );
+
+    } catch (err) {
+
+      console.error(err);
+
+      setMessage("Failed to delete ❌");
+
     }
-
-    setMessage(data.message);
-
-    // 🔥 remove deleted issue instantly
-    setResults((prev) =>
-      prev.filter((item) => item.id !== id)
-    );
-
-  } catch (err) {
-
-    console.error(err);
-
-    setMessage("Failed to delete ❌");
-
-  }
-};
+  };
 
   return (
     <motion.div
@@ -210,26 +223,26 @@ export default function Home() {
         </div>
 
         {/* CAUSE */}
-        <input
-          value={cause}
-          onChange={(e) => setCause(e.target.value)}
-          placeholder="Cause"
+        <textarea
+          value={causes}
+          onChange={(e) => setCauses(e.target.value)}
+          placeholder="Causes (one per line)"
           className="w-full p-3 rounded-lg bg-white/90 text-black"
         />
 
         {/* FIX */}
-        <input
-          value={fix}
-          onChange={(e) => setFix(e.target.value)}
-          placeholder="Fix"
+        <textarea
+          value={fixes}
+          onChange={(e) => setFixes(e.target.value)}
+          placeholder="Fixes (one per line)"
           className="w-full p-3 rounded-lg bg-white/90 text-black"
         />
 
         {/* STEPS */}
         <textarea
-          value={steps}
-          onChange={(e) => setSteps(e.target.value)}
-          placeholder="Debugging steps"
+          value={debugSteps}
+          onChange={(e) => setDebugSteps(e.target.value)}
+          placeholder="Debug steps (one per line)"
           className="w-full p-3 rounded-lg bg-white/90 text-black"
         />
 
@@ -286,25 +299,35 @@ export default function Home() {
               {similarIssue.error}
             </p>
 
-            <p className="mt-3">
-              <strong>📌 Cause:</strong>
-              <br />
-              {similarIssue.cause}
-            </p>
+            <div className="mt-3">
+              <strong>📌 Causes:</strong>
 
-            <p className="mt-3">
-              <strong>✅ Fix:</strong>
-              <br />
-              {similarIssue.fix}
-            </p>
+              <ul className="list-disc ml-5 mt-1">
+                {similarIssue.causes?.map((cause, idx) => (
+                  <li key={idx}>{cause}</li>
+                ))}
+              </ul>
+            </div>
 
-            {similarIssue.steps && (
-              <p className="mt-3">
-                <strong>🛠 Steps:</strong>
-                <br />
-                {similarIssue.steps}
-              </p>
-            )}
+            <div className="mt-3">
+              <strong>✅ Fixes:</strong>
+
+              <ul className="list-disc ml-5 mt-1">
+                {similarIssue.fixes?.map((fix, idx) => (
+                  <li key={idx}>{fix}</li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="mt-3">
+              <strong>🛠 Debug Steps:</strong>
+
+              <ul className="list-disc ml-5 mt-1">
+                {similarIssue.debug_steps?.map((step, idx) => (
+                  <li key={idx}>{step}</li>
+                ))}
+              </ul>
+            </div>
           </div>
         )}
       </motion.div>
@@ -330,36 +353,46 @@ export default function Home() {
             </p>
 
             <div className="mt-3">
-              <p className="text-yellow-300 font-semibold">
-                📌 Cause
-              </p>
 
-              <p className="text-sm text-gray-200">
-                {item.cause}
-              </p>
+              <div className="mt-3">
+                <p className="text-yellow-300 font-semibold">
+                  📌 Causes
+                </p>
+
+                <ul className="list-disc ml-5 text-sm text-gray-200 mt-1">
+                  {item.causes?.map((cause, idx) => (
+                    <li key={idx}>{cause}</li>
+                  ))}
+                </ul>
+              </div>
             </div>
 
             <div className="mt-3">
               <p className="text-green-300 font-semibold">
-                ✅ Fix
+                ✅ Fixes
               </p>
 
-              <p className="text-sm text-gray-200">
-                {item.fix}
-              </p>
+              <ul className="list-disc ml-5 text-sm text-gray-200 mt-1">
+                {item.fixes?.map((fix, idx) => (
+                  <li key={idx}>{fix}</li>
+                ))}
+              </ul>
             </div>
 
-            {item.steps && (
-              <div className="mt-3">
-                <p className="text-blue-300 font-semibold">
-                  🛠 Steps
-                </p>
+            {item.debug_steps &&
+              item.debug_steps.length > 0 && (
+                <div className="mt-3">
+                  <p className="text-blue-300 font-semibold">
+                    🛠 Debug Steps
+                  </p>
 
-                <p className="text-sm text-gray-200 whitespace-pre-wrap">
-                  {item.steps}
-                </p>
-              </div>
-            )}
+                  <ul className="list-disc ml-5 text-sm text-gray-200 mt-1">
+                    {item.debug_steps.map((step, idx) => (
+                      <li key={idx}>{step}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
             {item.tags && item.tags.length > 0 && (
               <div className="mt-3 flex flex-wrap gap-2">
@@ -375,21 +408,21 @@ export default function Home() {
             )}
 
             <>
-  {item.created_at && (
-    <p className="text-xs text-gray-400 mt-4">
-      🕒 {new Date(item.created_at).toLocaleString()}
-    </p>
-  )}
+              {item.created_at && (
+                <p className="text-xs text-gray-400 mt-4">
+                  🕒 {new Date(item.created_at).toLocaleString()}
+                </p>
+              )}
 
-  <button
-    onClick={() => handleDelete(item.id)}
-    className="mt-4 bg-red-500 hover:bg-red-600 px-3 py-1 rounded text-sm"
-  >
-    🗑 Delete
-  </button>
-</>
+              <button
+                onClick={() => handleDelete(item.id)}
+                className="mt-4 bg-red-500 hover:bg-red-600 px-3 py-1 rounded text-sm"
+              >
+                🗑 Delete
+              </button>
+            </>
           </motion.div>
-          
+
         ))}
       </div>
     </motion.div>
