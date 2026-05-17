@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 
+	"devops-memory-assistant/internal/ai"
 	"devops-memory-assistant/internal/db"
 	"devops-memory-assistant/internal/models"
 )
@@ -83,7 +84,6 @@ func SaveIssue(w http.ResponseWriter, r *http.Request) {
 		"message": "Saved successfully ✅",
 	})
 }
-
 func SearchIssue(w http.ResponseWriter, r *http.Request) {
 
 	query := r.URL.Query().Get("error")
@@ -101,12 +101,35 @@ func SearchIssue(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error fetching data", 500)
 		return
 	}
+
 	if results == nil {
 		results = []models.Issue{}
 	}
 
-	log.Printf("INFO: search completed for query '%s', found %d results", query, len(results))
-	json.NewEncoder(w).Encode(results)
+	// 🤖 AI Summary
+	summary, err := ai.GenerateSummary(query)
+
+
+	if err != nil {
+
+		log.Printf("OpenAI ERROR: %v", err)
+
+		// fallback summary
+		summary = "AI summary unavailable"
+	}
+
+	log.Printf(
+		"INFO: search completed for query '%s', found %d results",
+		query,
+		len(results),
+	)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"results": results,
+		"summary": summary,
+	})
 }
 
 func DeleteIssue(w http.ResponseWriter, r *http.Request) {

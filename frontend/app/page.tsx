@@ -42,7 +42,7 @@ export default function Home() {
       const res = await fetch(`${API}/search?error=${error}`);
       const data = await res.json();
 
-      setResults(data);
+      setResults(data.results || []);
     } catch {
       setMessage("Something went wrong ❌");
     }
