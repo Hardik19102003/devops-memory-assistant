@@ -13,19 +13,15 @@ import (
 
 func SaveIssue(issue models.Issue) error {
 
-	// 🔥 Create text for embedding
-	text := issue.Error + " " +
-		strings.Join(issue.Causes, " ") + " " +
-		strings.Join(issue.Fixes, " ")
+	var vector interface{}
 
-	// 🤖 Generate embedding using Ollama
-	embedding, err := ai.GenerateEmbedding(text)
+	embedding, err := ai.GenerateEmbedding(issue.Error)
 
-	if err != nil {
-		return err
+	if err == nil {
+
+		vector = pgvector.NewVector(embedding)
 	}
 
-	// 💾 Save into PostgreSQL
 	_, err = DB.Exec(`
 INSERT INTO issues (
 	error,
@@ -42,7 +38,7 @@ VALUES ($1, $2, $3, $4, $5, $6)
 		strings.Join(issue.Fixes, " | "),
 		strings.Join(issue.DebugSteps, " | "),
 		pq.Array(issue.Tags),
-		pgvector.NewVector(embedding),
+		vector,
 	)
 
 	return err
@@ -50,13 +46,16 @@ VALUES ($1, $2, $3, $4, $5, $6)
 
 func SearchIssue(query string) ([]models.Issue, error) {
 
-	issues := []models.Issue{}
-
-	// Generate embedding for search query
+	// Try semantic search first
 	embedding, err := ai.GenerateEmbedding(query)
+
 	if err != nil {
-		return nil, err
+
+		// Fallback to old search
+		return SearchIssueFallback(query)
 	}
+
+	issues := []models.Issue{}
 
 	rows, err := DB.Query(`
 	SELECT
@@ -73,6 +72,67 @@ func SearchIssue(query string) ([]models.Issue, error) {
 	`,
 		pgvector.NewVector(embedding),
 	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	for rows.Next() {
+
+		var issue models.Issue
+
+		var causes string
+		var fixes string
+		var steps string
+
+		err := rows.Scan(
+			&issue.ID,
+			&issue.Error,
+			&causes,
+			&fixes,
+			&steps,
+			pq.Array(&issue.Tags),
+			&issue.CreatedAt,
+		)
+
+		if err != nil {
+			return nil, err
+		}
+
+		issue.Causes = strings.Split(causes, " | ")
+		issue.Fixes = strings.Split(fixes, " | ")
+		issue.DebugSteps = strings.Split(steps, " | ")
+
+		issues = append(issues, issue)
+	}
+
+	return issues, nil
+}
+
+func SearchIssueFallback(query string) ([]models.Issue, error) {
+
+	issues := []models.Issue{}
+
+	searchTerm := "%" + query + "%"
+
+	rows, err := DB.Query(`
+	SELECT
+		id,
+		error,
+		cause,
+		fix,
+		COALESCE(steps, ''),
+		COALESCE(tags, '{}'::text[]),
+		created_at
+	FROM issues
+	WHERE error ILIKE $1
+	   OR cause ILIKE $1
+	   OR fix ILIKE $1
+	ORDER BY created_at DESC
+	LIMIT 5;
+	`, searchTerm)
 
 	if err != nil {
 		return nil, err

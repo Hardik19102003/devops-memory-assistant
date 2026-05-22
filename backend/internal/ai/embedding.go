@@ -3,31 +3,27 @@ package ai
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 )
 
-type EmbeddingRequest struct {
-	Model  string `json:"model"`
-	Prompt string `json:"prompt"`
-}
-
-type EmbeddingResponse struct {
+type OllamaEmbeddingResponse struct {
 	Embedding []float32 `json:"embedding"`
 }
 
 func GenerateEmbedding(text string) ([]float32, error) {
 
-	reqBody := EmbeddingRequest{
-		Model:  "nomic-embed-text",
-		Prompt: text,
+	bodyMap := map[string]interface{}{
+		"model":  "nomic-embed-text",
+		"prompt": text,
 	}
 
-	jsonData, _ := json.Marshal(reqBody)
+	bodyBytes, _ := json.Marshal(bodyMap)
 
 	resp, err := http.Post(
 		"http://localhost:11434/api/embeddings",
 		"application/json",
-		bytes.NewBuffer(jsonData),
+		bytes.NewBuffer(bodyBytes),
 	)
 
 	if err != nil {
@@ -36,13 +32,14 @@ func GenerateEmbedding(text string) ([]float32, error) {
 
 	defer resp.Body.Close()
 
-	var result EmbeddingResponse
+	var result OllamaEmbeddingResponse
 
 	err = json.NewDecoder(resp.Body).Decode(&result)
-
 	if err != nil {
 		return nil, err
 	}
+
+	fmt.Println("✅ Embedding generated:", len(result.Embedding))
 
 	return result.Embedding, nil
 }
