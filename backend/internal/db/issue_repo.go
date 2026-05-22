@@ -2,29 +2,47 @@ package db
 
 import (
 	"database/sql"
-	"devops-memory-assistant/internal/models"
 	"strings"
 
+	"devops-memory-assistant/internal/ai"
+	"devops-memory-assistant/internal/models"
+
 	"github.com/lib/pq"
+	"github.com/pgvector/pgvector-go"
 )
 
 func SaveIssue(issue models.Issue) error {
 
-	_, err := DB.Exec(`
+	// 🔥 Create text for embedding
+	text := issue.Error + " " +
+		strings.Join(issue.Causes, " ") + " " +
+		strings.Join(issue.Fixes, " ")
+
+	// 🤖 Generate embedding using Ollama
+	embedding, err := ai.GenerateEmbedding(text)
+
+	if err != nil {
+		return err
+	}
+
+	// 💾 Save into PostgreSQL
+	_, err = DB.Exec(`
 INSERT INTO issues (
 	error,
 	cause,
 	fix,
 	steps,
-	tags
+	tags,
+	embedding
 )
-VALUES ($1, $2, $3, $4, $5)
+VALUES ($1, $2, $3, $4, $5, $6)
 `,
 		issue.Error,
 		strings.Join(issue.Causes, " | "),
 		strings.Join(issue.Fixes, " | "),
 		strings.Join(issue.DebugSteps, " | "),
 		pq.Array(issue.Tags),
+		pgvector.NewVector(embedding),
 	)
 
 	return err
@@ -34,10 +52,14 @@ func SearchIssue(query string) ([]models.Issue, error) {
 
 	issues := []models.Issue{}
 
-	searchTerm := "%" + query + "%"
+	// Generate embedding for search query
+	embedding, err := ai.GenerateEmbedding(query)
+	if err != nil {
+		return nil, err
+	}
 
 	rows, err := DB.Query(`
-	SELECT 
+	SELECT
 		id,
 		error,
 		cause,
@@ -46,12 +68,11 @@ func SearchIssue(query string) ([]models.Issue, error) {
 		COALESCE(tags, '{}'::text[]),
 		created_at
 	FROM issues
-	WHERE error ILIKE $1
-	   OR cause ILIKE $1
-	   OR fix ILIKE $1
-	ORDER BY created_at DESC
+	ORDER BY embedding <-> $1
 	LIMIT 5;
-`, searchTerm)
+	`,
+		pgvector.NewVector(embedding),
+	)
 
 	if err != nil {
 		return nil, err
@@ -81,7 +102,6 @@ func SearchIssue(query string) ([]models.Issue, error) {
 			return nil, err
 		}
 
-		// Convert DB strings back into arrays
 		issue.Causes = strings.Split(causes, " | ")
 		issue.Fixes = strings.Split(fixes, " | ")
 		issue.DebugSteps = strings.Split(steps, " | ")
@@ -135,7 +155,6 @@ func FindSimilarIssue(query string) (*models.Issue, error) {
 		return nil, err
 	}
 
-	// Convert DB string → arrays
 	issue.Causes = strings.Split(causes, " | ")
 	issue.Fixes = strings.Split(fixes, " | ")
 	issue.DebugSteps = strings.Split(steps, " | ")

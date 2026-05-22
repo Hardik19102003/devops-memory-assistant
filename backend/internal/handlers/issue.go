@@ -5,7 +5,6 @@ import (
 	"log"
 	"net/http"
 
-	"devops-memory-assistant/internal/ai"
 	"devops-memory-assistant/internal/db"
 	"devops-memory-assistant/internal/models"
 )
@@ -107,16 +106,7 @@ func SearchIssue(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 🤖 AI Summary
-	summary, err := ai.GenerateSummary(query)
-
-
-	if err != nil {
-
-		log.Printf("OpenAI ERROR: %v", err)
-
-		// fallback summary
-		summary = "AI summary unavailable"
-	}
+	summary := "💡 AI summary temporarily unavailable (fallback mode)"
 
 	log.Printf(
 		"INFO: search completed for query '%s', found %d results",

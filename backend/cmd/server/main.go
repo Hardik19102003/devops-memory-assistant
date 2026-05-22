@@ -2,11 +2,14 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 
 	"devops-memory-assistant/config"
 	"devops-memory-assistant/internal/db"
 	"devops-memory-assistant/internal/handlers"
+
+	"github.com/joho/godotenv"
 )
 
 func enableCORS(next http.Handler) http.Handler {
@@ -26,6 +29,10 @@ func enableCORS(next http.Handler) http.Handler {
 }
 
 func main() {
+    err := godotenv.Load()
+    if err != nil {
+        log.Println("No .env file found, using system env")
+    }
 	cfg := config.Load()
 
 	fmt.Println("DB:", cfg.DBURL)
@@ -44,7 +51,7 @@ func main() {
 
 	fmt.Println("Server running on :", cfg.PORT)
 
-	err := http.ListenAndServe(":"+cfg.PORT, enableCORS(mux))
+	err = http.ListenAndServe(":"+cfg.PORT, enableCORS(mux))
 	if err != nil {
 		panic(err)
 	}
