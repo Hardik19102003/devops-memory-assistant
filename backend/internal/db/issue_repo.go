@@ -15,10 +15,16 @@ func SaveIssue(issue models.Issue) error {
 
 	var vector interface{}
 
-	embedding, err := ai.GenerateEmbedding(issue.Error)
+	// Better embedding source
+	contentForEmbedding := `
+	Issue: ` + issue.Error + `
+
+	Document:
+	` + issue.Document
+
+	embedding, err := ai.GenerateEmbedding(contentForEmbedding)
 
 	if err == nil {
-
 		vector = pgvector.NewVector(embedding)
 	}
 
@@ -29,15 +35,17 @@ INSERT INTO issues (
 	fix,
 	steps,
 	tags,
+	document,
 	embedding
 )
-VALUES ($1, $2, $3, $4, $5, $6)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 `,
 		issue.Error,
 		strings.Join(issue.Causes, " | "),
 		strings.Join(issue.Fixes, " | "),
 		strings.Join(issue.DebugSteps, " | "),
 		pq.Array(issue.Tags),
+		issue.Document,
 		vector,
 	)
 
@@ -65,6 +73,7 @@ func SearchIssue(query string) ([]models.Issue, error) {
 		fix,
 		COALESCE(steps, ''),
 		COALESCE(tags, '{}'::text[]),
+		COALESCE(document, ''),
 		created_at
 	FROM issues
 	ORDER BY embedding <-> $1
@@ -94,6 +103,7 @@ func SearchIssue(query string) ([]models.Issue, error) {
 			&fixes,
 			&steps,
 			pq.Array(&issue.Tags),
+			&issue.Document,
 			&issue.CreatedAt,
 		)
 
@@ -125,6 +135,7 @@ func SearchIssueFallback(query string) ([]models.Issue, error) {
 		fix,
 		COALESCE(steps, ''),
 		COALESCE(tags, '{}'::text[]),
+		COALESCE(document, ''),
 		created_at
 	FROM issues
 	WHERE error ILIKE $1
@@ -155,6 +166,7 @@ func SearchIssueFallback(query string) ([]models.Issue, error) {
 			&fixes,
 			&steps,
 			pq.Array(&issue.Tags),
+			&issue.Document,
 			&issue.CreatedAt,
 		)
 
@@ -184,6 +196,7 @@ func FindSimilarIssue(query string) (*models.Issue, error) {
 		fix,
 		COALESCE(steps, ''),
 		COALESCE(tags, '{}'::text[]),
+		COALESCE(document, ''),
 		created_at
 	FROM issues
 	WHERE error ILIKE $1
@@ -204,6 +217,7 @@ func FindSimilarIssue(query string) (*models.Issue, error) {
 		&fixes,
 		&steps,
 		pq.Array(&issue.Tags),
+		&issue.Document,
 		&issue.CreatedAt,
 	)
 

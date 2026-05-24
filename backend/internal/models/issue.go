@@ -3,28 +3,23 @@ package models
 type Issue struct {
 	ID int `json:"id"`
 
-	// Main issue title
+	// Incident title
 	Error string `json:"error"`
 
-	// Multiple possible causes
+	// Structured fields
 	Causes []string `json:"causes"`
-
-	// Multiple possible fixes
 	Fixes []string `json:"fixes"`
-
-	// Step-by-step debugging flow
 	DebugSteps []string `json:"debug_steps"`
 
-	// Helpful commands
+	// Extra operational metadata
 	Commands []string `json:"commands"`
-
-	// Categorization
 	Tags []string `json:"tags"`
 
-	// Future AI recommendations
-	RelatedIssues []string `json:"related_issues"`
+	// Long-form markdown incident doc
+	Document string `json:"document"`
 
-	// Docs / URLs
+	// Future AI features
+	RelatedIssues []string `json:"related_issues"`
 	References []string `json:"references"`
 
 	CreatedAt string `json:"created_at"`
