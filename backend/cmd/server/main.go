@@ -48,6 +48,7 @@ func main() {
 	mux.HandleFunc("/search", handlers.SearchIssue)
 	mux.HandleFunc("/suggest", handlers.SuggestIssue)
 	mux.HandleFunc("/delete", handlers.DeleteIssue)
+	mux.HandleFunc("/analyze", handlers.AnalyzeIssue)
 
 	fmt.Println("Server running on :", cfg.PORT)
 

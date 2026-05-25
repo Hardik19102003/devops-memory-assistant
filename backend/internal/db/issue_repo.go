@@ -28,7 +28,9 @@ func SaveIssue(issue models.Issue) error {
 		vector = pgvector.NewVector(embedding)
 	}
 
-	_, err = DB.Exec(`
+	var issueID int
+
+err = DB.QueryRow(`
 INSERT INTO issues (
 	error,
 	cause,
@@ -39,17 +41,32 @@ INSERT INTO issues (
 	embedding
 )
 VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id
 `,
-		issue.Error,
-		strings.Join(issue.Causes, " | "),
-		strings.Join(issue.Fixes, " | "),
-		strings.Join(issue.DebugSteps, " | "),
-		pq.Array(issue.Tags),
-		issue.Document,
-		vector,
-	)
+	issue.Error,
+	strings.Join(issue.Causes, " | "),
+	strings.Join(issue.Fixes, " | "),
+	strings.Join(issue.DebugSteps, " | "),
+	pq.Array(issue.Tags),
+	issue.Document,
+	vector,
+).Scan(&issueID)
 
+if err != nil {
 	return err
+}
+
+// Save document chunks
+if issue.Document != "" {
+
+	err = SaveChunks(issueID, issue.Document)
+
+	if err != nil {
+		return err
+	}
+}
+
+return nil
 }
 
 func SearchIssue(query string) ([]models.Issue, error) {
