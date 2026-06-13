@@ -2,6 +2,14 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
+import SimilarIncidentPanel from "./components/SimilarIncidentPanel";
+
+type SimilarIncident = {
+  id: number;
+  title: string;
+  summary: string;
+  similarity: number;
+};
 
 type ExtractedIncident = {
   title: string;
@@ -33,6 +41,7 @@ export default function Home() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [incidentId, setIncidentId] = useState<number | null>(null);
+  const [similarIncidents, setSimilarIncidents] = useState<SimilarIncident[]>([]);
 
   const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
@@ -45,22 +54,40 @@ export default function Home() {
     setMessage("");
     setExtracted(null);
     setIncidentId(null);
+    setSimilarIncidents([]);
     try {
-      const res = await fetch(`${API}/incident/extract`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ raw_notes: rawNotes }),
-      });
+      // Parallel calls: find similar incidents + extract new incident
+      const [similarRes, extractRes] = await Promise.all([
+        fetch(`${API}/incidents/similar`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query: rawNotes }),
+        }),
+        fetch(`${API}/incident/extract`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ raw_notes: rawNotes }),
+        }),
+      ]);
 
-      if (!res.ok) {
-        throw new Error(`Analysis failed: ${res.status}`);
+      let simCount = 0;
+      if (similarRes.ok) {
+        const simData: SimilarIncident[] = await similarRes.json();
+        setSimilarIncidents(simData);
+        simCount = simData.length;
       }
 
-      const data: ExtractedIncident = await res.json();
+      if (!extractRes.ok) {
+        throw new Error(`Analysis failed: ${extractRes.status}`);
+      }
+
+      const data: ExtractedIncident = await extractRes.json();
       setExtracted(data);
-      setMessage("Incident analyzed successfully ✅");
+      setMessage(
+        simCount > 0
+          ? `Found ${simCount} similar incident${simCount > 1 ? "s" : ""} ✅`
+          : "Incident analyzed successfully ✅"
+      );
     } catch (err: any) {
       console.error(err);
       setMessage(`Analysis failed: ${err.message}`);
@@ -183,6 +210,14 @@ export default function Home() {
             </button>
           </div>
         </motion.div>
+
+        {/* Similar Incidents Panel */}
+        <SimilarIncidentPanel
+          incidents={similarIncidents}
+          onSelect={(inc) => {
+            window.alert(`Incident #${inc.id}\n\nTitle: ${inc.title}\n\nSummary: ${inc.summary}\n\nSimilarity: ${Math.round(inc.similarity * 100)}%`);
+          }}
+        />
 
         {/* Step 3: Show and Edit Extracted Data */}
         {extracted && (

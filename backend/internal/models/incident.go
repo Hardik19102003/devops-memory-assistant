@@ -43,3 +43,11 @@ type IncidentInput struct {
 	LessonsLearned string  `json:"lessons_learned"`
 	RawNotes    string   `json:"raw_notes"`
 }
+
+// SimilarIncident represents a past incident matched by semantic search.
+type SimilarIncident struct {
+	ID         int      `json:"id"`
+	Title      string   `json:"title"`
+	Summary    string   `json:"summary"`
+	Similarity float64  `json:"similarity"`
+}

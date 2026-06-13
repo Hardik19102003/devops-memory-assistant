@@ -21,6 +21,7 @@ type MockIncidentService struct {
 	UpdateIncidentFunc           func(ctx context.Context, incident *models.Incident) error
 	DeleteIncidentFunc           func(ctx context.Context, id int) error
 	SearchIncidentsFunc          func(ctx context.Context, query string, limit int) ([]models.Incident, error)
+	FindSimilarIncidentsFunc     func(ctx context.Context, rawNotes string, limit int) ([]models.SimilarIncident, error)
 }
 
 func (m *MockIncidentService) ExtractIncidentFromNotes(ctx context.Context, rawNotes string) (*models.IncidentInput, error) {
@@ -63,6 +64,13 @@ func (m *MockIncidentService) SearchIncidents(ctx context.Context, query string,
 		return m.SearchIncidentsFunc(ctx, query, limit)
 	}
 	return []models.Incident{}, nil
+}
+
+func (m *MockIncidentService) FindSimilarIncidents(ctx context.Context, rawNotes string, limit int) ([]models.SimilarIncident, error) {
+	if m.FindSimilarIncidentsFunc != nil {
+		return m.FindSimilarIncidentsFunc(ctx, rawNotes, limit)
+	}
+	return []models.SimilarIncident{}, nil
 }
 
 func TestExtractIncident(t *testing.T) {

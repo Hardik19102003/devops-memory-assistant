@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"log"
 
 	"devops-memory-assistant/internal/ai"
@@ -107,6 +108,35 @@ func (s *IncidentService) UpdateIncident(ctx context.Context, incident *models.I
 // DeleteIncident deletes an incident by its ID.
 func (s *IncidentService) DeleteIncident(ctx context.Context, id int) error {
 	return db.DeleteIncident(id)
+}
+
+// FindSimilarIncidents performs semantic search using embeddings and returns
+// the top-N most similar past incidents with similarity percentages.
+func (s *IncidentService) FindSimilarIncidents(ctx context.Context, rawNotes string, limit int) ([]models.SimilarIncident, error) {
+	embedding, err := ai.GenerateEmbedding(rawNotes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate embedding: %w", err)
+	}
+
+	results, err := db.SearchIncidentsByEmbeddingWithDistance(embedding, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to search incidents: %w", err)
+	}
+
+	var similar []models.SimilarIncident
+	for _, r := range results {
+		score := 1.0 - r.Distance // cosine distance → similarity
+		if score < 0 {
+			score = 0
+		}
+		similar = append(similar, models.SimilarIncident{
+			ID:         r.Incident.ID,
+			Title:      r.Incident.Title,
+			Summary:    r.Incident.Summary,
+			Similarity: score,
+		})
+	}
+	return similar, nil
 }
 
 // SearchIncidents searches for incidents based on a query.

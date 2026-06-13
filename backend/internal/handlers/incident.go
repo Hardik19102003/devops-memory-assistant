@@ -18,6 +18,7 @@ type IncidentService interface {
 	UpdateIncident(ctx context.Context, incident *models.Incident) error
 	DeleteIncident(ctx context.Context, id int) error
 	SearchIncidents(ctx context.Context, query string, limit int) ([]models.Incident, error)
+	FindSimilarIncidents(ctx context.Context, rawNotes string, limit int) ([]models.SimilarIncident, error)
 }
 
 // IncidentHandler handles HTTP requests for incidents.
@@ -59,6 +60,37 @@ func (h *IncidentHandler) ExtractIncident(w http.ResponseWriter, r *http.Request
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(incidentInput)
+}
+
+// SimilarIncidents handles POST /incidents/similar
+// It returns the top-N semantically similar past incidents.
+func (h *IncidentHandler) SimilarIncidents(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		Query string `json:"query"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+	if req.Query == "" {
+		http.Error(w, "query cannot be empty", http.StatusBadRequest)
+		return
+	}
+
+	results, err := h.Service.FindSimilarIncidents(r.Context(), req.Query, 5)
+	if err != nil {
+		log.Printf("failed to find similar incidents: %v", err)
+		http.Error(w, "failed to find similar incidents", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(results)
 }
 
 // SaveIncident handles POST /incidents

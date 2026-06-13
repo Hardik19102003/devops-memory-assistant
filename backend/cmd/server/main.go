@@ -72,6 +72,7 @@ func main() {
 		}
 	})
 	mux.HandleFunc("/incidents", incidentHandler.SearchIncidents)
+	mux.HandleFunc("/incidents/similar", incidentHandler.SimilarIncidents)
 
 	fmt.Println("Server running on :", cfg.PORT)
 

@@ -13,6 +13,43 @@ import (
 
 // ExtractIncidentFromNotes extracts structured incident data from raw notes using Ollama.
 // cleanJSONResponse strips markdown code fences and extracts the first JSON object/array.
+func stripTrailingCommas(s string) string {
+	var result strings.Builder
+	inString := false
+	escaped := false
+	for i := 0; i < len(s); i++ {
+		ch := s[i]
+		if inString {
+			if escaped {
+				escaped = false
+			} else if ch == '\\' {
+				escaped = true
+			} else if ch == '"' {
+				inString = false
+			}
+			result.WriteByte(ch)
+			continue
+		}
+		if ch == '"' {
+			inString = true
+			result.WriteByte(ch)
+			continue
+		}
+		if ch == ',' {
+			// Look ahead: if next non-space is } or ], skip this comma
+			j := i + 1
+			for j < len(s) && (s[j] == ' ' || s[j] == '\n' || s[j] == '\t' || s[j] == '\r') {
+				j++
+			}
+			if j < len(s) && (s[j] == '}' || s[j] == ']') {
+				continue
+			}
+		}
+		result.WriteByte(ch)
+	}
+	return result.String()
+}
+
 func cleanJSONResponse(response string) string {
 	response = strings.TrimSpace(response)
 	// Strip markdown code fences if present
@@ -31,6 +68,14 @@ func cleanJSONResponse(response string) string {
 		}
 		response = strings.TrimSpace(buf.String())
 	}
+	// Extract the first JSON object (from first '{' to last '}')
+	start := strings.Index(response, "{")
+	end := strings.LastIndex(response, "}")
+	if start != -1 && end != -1 && end > start {
+		response = response[start : end+1]
+	}
+	// Remove trailing commas that LLMs often generate
+	response = stripTrailingCommas(response)
 	return response
 }
 

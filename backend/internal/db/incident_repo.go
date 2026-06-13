@@ -298,6 +298,79 @@ func SearchIncidents(query string, limit int) ([]models.Incident, error) {
 	return incidents, nil
 }
 
+// IncidentWithDistance wraps an incident with its pgvector cosine distance.
+type IncidentWithDistance struct {
+	Incident models.Incident
+	Distance float64
+}
+
+// SearchIncidentsByEmbeddingWithDistance returns incidents ordered by similarity
+// along with their cosine distance (0 = identical, 2 = opposite).
+func SearchIncidentsByEmbeddingWithDistance(embedding []float32, limit int) ([]IncidentWithDistance, error) {
+	ctx := context.Background()
+	q := fmt.Sprintf(`
+		SELECT id, title, summary, symptoms, evidence, root_cause, resolution, prevention,
+		       commands_used, tags, severity, environment, services_affected, lessons_learned,
+		       raw_notes, embedding, created_at, updated_at,
+		       embedding <=> $1 AS distance
+		FROM %s
+		WHERE embedding IS NOT NULL
+		ORDER BY distance ASC
+		LIMIT $2
+	`, tableIncidents)
+	rows, err := DB.QueryContext(ctx, q, pgvector.NewVector(embedding), limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to search incidents by embedding: %w", err)
+	}
+	defer rows.Close()
+
+	var results []IncidentWithDistance
+	for rows.Next() {
+		var incident models.Incident
+		var createdAt, updatedAt time.Time
+		var emb NullVector
+		var distance float64
+		err := rows.Scan(
+			&incident.ID,
+			&incident.Title,
+			&incident.Summary,
+			pq.Array(&incident.Symptoms),
+			pq.Array(&incident.Evidence),
+			pq.Array(&incident.RootCause),
+			pq.Array(&incident.Resolution),
+			pq.Array(&incident.Prevention),
+			pq.Array(&incident.CommandsUsed),
+			pq.Array(&incident.Tags),
+			&incident.Severity,
+			&incident.Environment,
+			pq.Array(&incident.ServicesAffected),
+			&incident.LessonsLearned,
+			&incident.RawNotes,
+			&emb,
+			&createdAt,
+			&updatedAt,
+			&distance,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan incident: %w", err)
+		}
+		if emb.Valid && len(emb.Vector.Slice()) > 0 {
+			slice := emb.Vector.Slice()
+			incident.Embedding = make([]float64, len(slice))
+			for i, v := range slice {
+				incident.Embedding[i] = float64(v)
+			}
+		}
+		incident.CreatedAt = createdAt
+		incident.UpdatedAt = updatedAt
+		results = append(results, IncidentWithDistance{Incident: incident, Distance: distance})
+	}
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating over incident rows: %w", err)
+	}
+	return results, nil
+}
+
 // SearchIncidentsByEmbedding finds incidents semantically similar to the given embedding vector.
 func SearchIncidentsByEmbedding(embedding []float32, limit int) ([]models.Incident, error) {
 	ctx := context.Background()
