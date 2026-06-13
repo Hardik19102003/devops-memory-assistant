@@ -85,27 +85,36 @@ func parseIncidentInput(data []byte) (*models.IncidentInput, error) {
 	return &in, nil
 }
 
-func ExtractIncidentFromNotes(notes string) (*models.IncidentInput, error) {
-	prompt := `
-You are a DevOps incident analyst. Extract the following fields from the incident notes and return them as a JSON object:
-- title: a short title summarizing the incident
-- summary: a brief summary of the incident
-- symptoms: array of plain strings
-- evidence: array of plain strings
-- root_cause: array of plain strings
-- resolution: array of plain strings
-- prevention: array of plain strings
-- commands_used: array of plain strings
-- tags: array of plain strings
-- severity: one of low, medium, high, critical
-- environment: string
-- services_affected: array of plain strings
-- lessons_learned: string
+func buildRelatedIncidentsContext(related []models.Incident) string {
+	if len(related) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString("\n\nHere are previously resolved similar incidents from your knowledge base. Use them as hints if they help, but prioritize the current notes:\n")
+	for i, ri := range related {
+		b.WriteString(fmt.Sprintf("\n--- Past Incident %d ---\n", i+1))
+		b.WriteString(fmt.Sprintf("Title: %s\n", ri.Title))
+		b.WriteString(fmt.Sprintf("Summary: %s\n", ri.Summary))
+		if len(ri.RootCause) > 0 {
+			b.WriteString(fmt.Sprintf("Root Cause: %s\n", strings.Join(ri.RootCause, ", ")))
+		}
+		if len(ri.Resolution) > 0 {
+			b.WriteString(fmt.Sprintf("Resolution: %s\n", strings.Join(ri.Resolution, ", ")))
+		}
+		if len(ri.Prevention) > 0 {
+			b.WriteString(fmt.Sprintf("Prevention: %s\n", strings.Join(ri.Prevention, ", ")))
+		}
+		if len(ri.CommandsUsed) > 0 {
+			b.WriteString(fmt.Sprintf("Commands Used: %s\n", strings.Join(ri.CommandsUsed, ", ")))
+		}
+		if len(ri.Tags) > 0 {
+			b.WriteString(fmt.Sprintf("Tags: %s\n", strings.Join(ri.Tags, ", ")))
+		}
+	}
+	return b.String()
+}
 
-Return ONLY a JSON object with these fields. All array fields must be arrays of plain strings, not objects. If a field is not present, return an empty array or empty string as appropriate.
-
-Incident notes: ` + notes
-
+func extractWithPrompt(prompt string) (*models.IncidentInput, error) {
 	reqBody := OllamaGenerateRequest{
 		Model:       "phi3:mini",
 		Prompt:      prompt,
@@ -138,7 +147,6 @@ Incident notes: ` + notes
 		return nil, fmt.Errorf("failed to unmarshal Ollama response: %w", err)
 	}
 
-	// The response should be a JSON string. Let's unmarshal it into IncidentInput.
 	cleaned := cleanJSONResponse(result.Response)
 	incidentInput, err := parseIncidentInput([]byte(cleaned))
 	if err != nil {
@@ -146,4 +154,50 @@ Incident notes: ` + notes
 	}
 
 	return incidentInput, nil
+}
+
+func ExtractIncidentFromNotes(notes string) (*models.IncidentInput, error) {
+	prompt := `
+You are a DevOps incident analyst. Extract the following fields from the incident notes and return them as a JSON object:
+- title: a short title summarizing the incident
+- summary: a brief summary of the incident
+- symptoms: array of plain strings
+- evidence: array of plain strings
+- root_cause: array of plain strings
+- resolution: array of plain strings
+- prevention: array of plain strings
+- commands_used: array of plain strings
+- tags: array of plain strings
+- severity: one of low, medium, high, critical
+- environment: string
+- services_affected: array of plain strings
+- lessons_learned: string
+
+Return ONLY a JSON object with these fields. All array fields must be arrays of plain strings, not objects. If a field is not present, return an empty array or empty string as appropriate.
+
+Incident notes: ` + notes
+	return extractWithPrompt(prompt)
+}
+
+func ExtractIncidentWithContext(notes string, related []models.Incident) (*models.IncidentInput, error) {
+	basePrompt := `
+You are a DevOps incident analyst. Extract the following fields from the incident notes and return them as a JSON object:
+- title: a short title summarizing the incident
+- summary: a brief summary of the incident
+- symptoms: array of plain strings
+- evidence: array of plain strings
+- root_cause: array of plain strings
+- resolution: array of plain strings
+- prevention: array of plain strings
+- commands_used: array of plain strings
+- tags: array of plain strings
+- severity: one of low, medium, high, critical
+- environment: string
+- services_affected: array of plain strings
+- lessons_learned: string
+
+Return ONLY a JSON object with these fields. All array fields must be arrays of plain strings, not objects. If a field is not present, return an empty array or empty string as appropriate.`
+
+	prompt := basePrompt + buildRelatedIncidentsContext(related) + "\n\nIncident notes: " + notes
+	return extractWithPrompt(prompt)
 }

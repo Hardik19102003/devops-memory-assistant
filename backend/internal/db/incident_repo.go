@@ -297,3 +297,66 @@ func SearchIncidents(query string, limit int) ([]models.Incident, error) {
 	}
 	return incidents, nil
 }
+
+// SearchIncidentsByEmbedding finds incidents semantically similar to the given embedding vector.
+func SearchIncidentsByEmbedding(embedding []float32, limit int) ([]models.Incident, error) {
+	ctx := context.Background()
+	q := fmt.Sprintf(`
+		SELECT id, title, summary, symptoms, evidence, root_cause, resolution, prevention,
+		       commands_used, tags, severity, environment, services_affected, lessons_learned,
+		       raw_notes, embedding, created_at, updated_at
+		FROM %s
+		WHERE embedding IS NOT NULL
+		ORDER BY embedding <=> $1
+		LIMIT $2
+	`, tableIncidents)
+	rows, err := DB.QueryContext(ctx, q, pgvector.NewVector(embedding), limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to search incidents by embedding: %w", err)
+	}
+	defer rows.Close()
+
+	var incidents []models.Incident
+	for rows.Next() {
+		var incident models.Incident
+		var createdAt, updatedAt time.Time
+		var emb NullVector
+		err := rows.Scan(
+			&incident.ID,
+			&incident.Title,
+			&incident.Summary,
+			pq.Array(&incident.Symptoms),
+			pq.Array(&incident.Evidence),
+			pq.Array(&incident.RootCause),
+			pq.Array(&incident.Resolution),
+			pq.Array(&incident.Prevention),
+			pq.Array(&incident.CommandsUsed),
+			pq.Array(&incident.Tags),
+			&incident.Severity,
+			&incident.Environment,
+			pq.Array(&incident.ServicesAffected),
+			&incident.LessonsLearned,
+			&incident.RawNotes,
+			&emb,
+			&createdAt,
+			&updatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan incident: %w", err)
+		}
+		if emb.Valid && len(emb.Vector.Slice()) > 0 {
+			slice := emb.Vector.Slice()
+			incident.Embedding = make([]float64, len(slice))
+			for i, v := range slice {
+				incident.Embedding[i] = float64(v)
+			}
+		}
+		incident.CreatedAt = createdAt
+		incident.UpdatedAt = updatedAt
+		incidents = append(incidents, incident)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating over incident rows: %w", err)
+	}
+	return incidents, nil
+}
