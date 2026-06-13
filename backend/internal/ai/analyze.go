@@ -7,17 +7,6 @@ import (
 	"net/http"
 )
 
-type OllamaGenerateRequest struct {
-	Model       string  `json:"model"`
-	Prompt      string  `json:"prompt"`
-	Stream      bool    `json:"stream"`
-	Temperature float64 `json:"temperature"`
-}
-
-type OllamaGenerateResponse struct {
-	Response string `json:"response"`
-}
-
 func AnalyzeIncident(query string, context string) (string, error) {
 
 	prompt := `

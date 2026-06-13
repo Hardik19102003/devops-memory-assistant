@@ -8,6 +8,7 @@ import (
 	"devops-memory-assistant/config"
 	"devops-memory-assistant/internal/db"
 	"devops-memory-assistant/internal/handlers"
+	"devops-memory-assistant/internal/service"
 
 	"github.com/joho/godotenv"
 )
@@ -43,12 +44,34 @@ func main() {
 
 	db.RunMigrations(database.DB)
 
+	// Initialize services
+	incidentService := service.NewIncidentService()
+	incidentHandler := handlers.NewIncidentHandler(incidentService)
+
 	mux := http.NewServeMux()
+	// Old endpoints (keep for backward compatibility or remove if not needed)
 	mux.HandleFunc("/issue", handlers.SaveIssue)
 	mux.HandleFunc("/search", handlers.SearchIssue)
 	mux.HandleFunc("/suggest", handlers.SuggestIssue)
 	mux.HandleFunc("/delete", handlers.DeleteIssue)
 	mux.HandleFunc("/analyze", handlers.AnalyzeIssue)
+	
+	// New incident endpoints
+	mux.HandleFunc("/incident/extract", incidentHandler.ExtractIncident)
+	mux.HandleFunc("/incident", incidentHandler.SaveIncident)
+	mux.HandleFunc("/incident/", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			incidentHandler.GetIncident(w, r)
+		case http.MethodPut:
+			incidentHandler.UpdateIncident(w, r)
+		case http.MethodDelete:
+			incidentHandler.DeleteIncident(w, r)
+		default:
+			w.WriteHeader(http.StatusMethodNotAllowed)
+		}
+	})
+	mux.HandleFunc("/incidents", incidentHandler.SearchIncidents)
 
 	fmt.Println("Server running on :", cfg.PORT)
 

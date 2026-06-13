@@ -3,407 +3,448 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 
-type Issue = {
-  id: number;
-  error: string;
-  causes: string[];
-  fixes: string[];
-  debug_steps: string[];
+type ExtractedIncident = {
+  title: string;
+  summary: string;
+  symptoms: string[];
+  evidence: string[];
+  root_cause: string[];
+  resolution: string[];
+  prevention: string[];
+  commands_used: string[];
   tags: string[];
-  document: string;
+  severity: string;
+  environment: string;
+  services_affected: string[];
+  lessons_learned: string;
+  raw_notes: string;
+};
+
+type Incident = ExtractedIncident & {
+  id: number;
   created_at: string;
+  updated_at: string;
 };
 
 export default function Home() {
-  const [error, setError] = useState("");
-  const [causes, setCauses] = useState("");
-  const [fixes, setFixes] = useState("");
-  const [debugSteps, setDebugSteps] = useState("");
-  const [tags, setTags] = useState("");
-  const [document, setDocument] = useState("");
-
-  const [results, setResults] = useState<Issue[]>([]);
-  const [suggestions, setSuggestions] = useState<Issue[]>([]);
-
-  const [loading, setLoading] = useState(false);
+  const [rawNotes, setRawNotes] = useState("");
+  const [analyzing, setAnalyzing] = useState(false);
+  const [extracted, setExtracted] = useState<ExtractedIncident | null>(null);
+  const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
-  const [searched, setSearched] = useState(false);
+  const [incidentId, setIncidentId] = useState<number | null>(null);
 
-  const API = process.env.NEXT_PUBLIC_API_URL;
+  const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
-  // SEARCH
-  const handleSearch = async () => {
-    setLoading(true);
-    setMessage("");
-    setSearched(true);
-
-    try {
-      const res = await fetch(
-        `${API}/search?error=${encodeURIComponent(error)}`
-      );
-
-      const data = await res.json();
-
-      setResults(data.results || []);
-    } catch {
-      setMessage("Search failed ❌");
+  const handleAnalyze = async () => {
+    if (!rawNotes.trim()) {
+      setMessage("Please paste incident notes first");
+      return;
     }
-
-    setLoading(false);
-  };
-
-  // SAVE
-  const handleSave = async () => {
-    setLoading(true);
+    setAnalyzing(true);
     setMessage("");
-
+    setExtracted(null);
+    setIncidentId(null);
     try {
-      const res = await fetch(`${API}/issue`, {
+      const res = await fetch(`${API}/incident/extract`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: "Bearer devops-secret-key",
         },
-        body: JSON.stringify({
-          error,
-
-          causes: causes
-            .split("\n")
-            .map((x) => x.trim())
-            .filter(Boolean),
-
-          fixes: fixes
-            .split("\n")
-            .map((x) => x.trim())
-            .filter(Boolean),
-
-          debug_steps: debugSteps
-            .split("\n")
-            .map((x) => x.trim())
-            .filter(Boolean),
-
-          tags: tags
-            .split(",")
-            .map((x) => x.trim())
-            .filter(Boolean),
-
-          document,
-        }),
+        body: JSON.stringify({ raw_notes: rawNotes }),
       });
 
-      const data = await res.json();
-
-      setMessage(data.message || "Saved ✅");
-
-      setError("");
-      setCauses("");
-      setFixes("");
-      setDebugSteps("");
-      setTags("");
-      setDocument("");
-    } catch {
-      setMessage("Save failed ❌");
-    }
-
-    setLoading(false);
-  };
-
-  // LIVE SEARCH SUGGESTIONS
-  const handleInputChange = async (value: string) => {
-    setError(value);
-
-    if (value.length > 2) {
-      try {
-        const res = await fetch(
-          `${API}/search?error=${encodeURIComponent(value)}`
-        );
-
-        const data = await res.json();
-
-        setSuggestions(data.results || []);
-      } catch {
-        setSuggestions([]);
+      if (!res.ok) {
+        throw new Error(`Analysis failed: ${res.status}`);
       }
-    } else {
-      setSuggestions([]);
+
+      const data: ExtractedIncident = await res.json();
+      setExtracted(data);
+      setMessage("Incident analyzed successfully ✅");
+    } catch (err: any) {
+      console.error(err);
+      setMessage(`Analysis failed: ${err.message}`);
+    } finally {
+      setAnalyzing(false);
     }
   };
 
-  // DELETE
-  const handleDelete = async (id: number) => {
+  const handleSave = async () => {
+    if (!extracted) {
+      setMessage("No extracted incident to save");
+      return;
+    }
+    setSaving(true);
+    setMessage("");
     try {
-      await fetch(`${API}/delete?id=${id}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: "Bearer devops-secret-key",
-        },
-      });
+      // If we already have an ID (from previous save), we update; otherwise create
+      let res: Response;
+      if (incidentId !== null) {
+        res = await fetch(`${API}/incident/${incidentId}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(extracted),
+        });
+      } else {
+        res = await fetch(`${API}/incident`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(extracted),
+        });
+      }
 
-      setResults((prev) =>
-        prev.filter((item) => item.id !== id)
-      );
+      if (!res.ok) {
+        throw new Error(`Save failed: ${res.status}`);
+      }
 
-      setMessage("Deleted successfully ✅");
-    } catch {
-      setMessage("Delete failed ❌");
+      const data: Incident = await res.json();
+      setIncidentId(data.id);
+      setMessage(`Incident saved successfully ✅ (ID: ${data.id})`);
+    } catch (err: any) {
+      console.error(err);
+      setMessage(`Save failed: ${err.message}`);
+    } finally {
+      setSaving(false);
     }
   };
+
+  // Helper to convert array to newline-separated string for textarea
+  const arrayToText = (arr: string[] | null | undefined): string => (arr || []).join("\n");
+  // Helper to convert newline-separated string to array
+  const textToArray = (text: string): string[] =>
+    text
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
 
   return (
-    <div className="min-h-screen bg-[#0f172a] text-white p-6">
-      <div className="max-w-7xl mx-auto">
-
-        {/* TITLE */}
+    <div className="min-h-screen bg-gradient-to-b from-[#0f172a] to-[#1e293b] text-white p-6">
+      <div className="max-w-4xl mx-auto">
         <motion.div
-          initial={{ opacity: 0, y: -15 }}
+          initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           className="mb-8"
         >
-          <h1 className="text-5xl font-bold">
+          <h1 className="text-4xl font-bold text-center">
             DevOps Memory Assistant 🚀
           </h1>
-
-          <p className="text-gray-400 mt-2">
-            Store production incidents, debugging workflows,
-            operational notes, and resolutions.
+          <p className="text-gray-300 mt-2 text-center">
+            Transform raw troubleshooting notes into structured knowledge
           </p>
         </motion.div>
 
-        {/* MAIN GRID */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
-          {/* LEFT PANEL */}
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-4">
-
-            {/* INCIDENT TITLE */}
-            <div>
-              <label className="text-sm text-gray-300">
-                Incident / Error
-              </label>
-
-              <input
-                value={error}
-                onChange={(e) =>
-                  handleInputChange(e.target.value)
-                }
-                placeholder="CrashLoopBackOff"
-                className="w-full mt-2 p-3 rounded-xl bg-black/30 border border-white/10"
-              />
-
-              {/* SUGGESTIONS */}
-              {suggestions.length > 0 && (
-                <div className="mt-2 bg-black/80 rounded-xl border border-white/10 overflow-hidden">
-                  {suggestions.map((item) => (
-                    <div
-                      key={item.id}
-                      onClick={() => {
-                        setError(item.error);
-                        setSuggestions([]);
-                      }}
-                      className="p-3 hover:bg-white/10 cursor-pointer border-b border-white/5"
-                    >
-                      {item.error}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* CAUSES */}
-            <textarea
-              value={causes}
-              onChange={(e) => setCauses(e.target.value)}
-              placeholder="Causes (one per line)"
-              rows={4}
-              className="w-full p-3 rounded-xl bg-black/30 border border-white/10"
-            />
-
-            {/* FIXES */}
-            <textarea
-              value={fixes}
-              onChange={(e) => setFixes(e.target.value)}
-              placeholder="Fixes (one per line)"
-              rows={4}
-              className="w-full p-3 rounded-xl bg-black/30 border border-white/10"
-            />
-
-            {/* DEBUG STEPS */}
-            <textarea
-              value={debugSteps}
-              onChange={(e) => setDebugSteps(e.target.value)}
-              placeholder="Debug steps (one per line)"
-              rows={5}
-              className="w-full p-3 rounded-xl bg-black/30 border border-white/10"
-            />
-
-            {/* TAGS */}
-            <input
-              value={tags}
-              onChange={(e) => setTags(e.target.value)}
-              placeholder="kubernetes,docker,network"
-              className="w-full p-3 rounded-xl bg-black/30 border border-white/10"
-            />
-
-            {/* DOCUMENT */}
-            <div>
-              <label className="text-sm text-gray-300">
-                Incident Documentation / Runbook
-              </label>
-
-              <textarea
-                value={document}
-                onChange={(e) => setDocument(e.target.value)}
-                placeholder={`Paste full incident notes here...
-
-Example:
-- What happened
-- Root cause
-- Investigation timeline
-- Commands used
-- Recovery steps
-- Permanent fix
-- Lessons learned`}
-                rows={18}
-                className="w-full mt-2 p-4 rounded-xl bg-black/30 border border-white/10 font-mono text-sm"
-              />
-            </div>
-
-            {/* BUTTONS */}
-            <div className="flex gap-4">
-
-              <button
-                onClick={handleSearch}
-                disabled={loading}
-                className="flex-1 bg-pink-600 hover:bg-pink-700 py-3 rounded-xl font-semibold"
-              >
-                {loading ? "Searching..." : "Search"}
-              </button>
-
-              <button
-                onClick={handleSave}
-                disabled={loading}
-                className="flex-1 bg-purple-600 hover:bg-purple-700 py-3 rounded-xl font-semibold"
-              >
-                {loading ? "Saving..." : "Save"}
-              </button>
-            </div>
-
-            {/* MESSAGE */}
-            {message && (
-              <div className="bg-black/30 border border-white/10 p-3 rounded-xl text-sm">
-                {message}
-              </div>
-            )}
+        {/* Message */}
+        {message && (
+          <div className={`mb-4 px-4 py-2 rounded-lg bg-black/50 text-sm text-center ${message.includes("✅") ? "text-green-400" : "text-red-400"}`}>
+            {message}
           </div>
+        )}
 
-          {/* RIGHT PANEL */}
-          <div className="space-y-5">
-
-            {searched && results.length === 0 && (
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-6 text-gray-400">
-                No incidents found 👀
-              </div>
-            )}
-
-            {results.map((item) => (
-              <motion.div
-                key={item.id}
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-white/5 border border-white/10 rounded-2xl p-6"
-              >
-                {/* TITLE */}
-                <h2 className="text-2xl font-bold text-pink-300">
-                  🚨 {item.error}
-                </h2>
-
-                {/* TAGS */}
-                <div className="flex flex-wrap gap-2 mt-3">
-                  {item.tags?.map((tag, idx) => (
-                    <span
-                      key={idx}
-                      className="bg-pink-500/20 text-pink-200 px-3 py-1 rounded-full text-xs"
-                    >
-                      #{tag}
-                    </span>
-                  ))}
-                </div>
-
-                {/* CAUSES */}
-                <div className="mt-5">
-                  <p className="font-semibold text-yellow-300">
-                    📌 Causes
-                  </p>
-
-                  <ul className="list-disc ml-5 mt-2 text-gray-300 space-y-1">
-                    {item.causes?.map((cause, idx) => (
-                      <li key={idx}>{cause}</li>
-                    ))}
-                  </ul>
-                </div>
-
-                {/* FIXES */}
-                <div className="mt-5">
-                  <p className="font-semibold text-green-300">
-                    ✅ Fixes
-                  </p>
-
-                  <ul className="list-disc ml-5 mt-2 text-gray-300 space-y-1">
-                    {item.fixes?.map((fix, idx) => (
-                      <li key={idx}>{fix}</li>
-                    ))}
-                  </ul>
-                </div>
-
-                {/* DEBUG */}
-                <div className="mt-5">
-                  <p className="font-semibold text-blue-300">
-                    🛠 Debug Steps
-                  </p>
-
-                  <ul className="list-disc ml-5 mt-2 text-gray-300 space-y-1">
-                    {item.debug_steps?.map((step, idx) => (
-                      <li key={idx}>{step}</li>
-                    ))}
-                  </ul>
-                </div>
-
-                {/* DOCUMENT */}
-                {item.document && (
-                  <div className="mt-6">
-                    <p className="font-semibold text-purple-300 mb-3">
-                      📚 Incident Notes
-                    </p>
-
-                    <div className="bg-black/40 border border-white/10 rounded-xl p-4 whitespace-pre-wrap text-sm text-gray-300 font-mono max-h-[400px] overflow-y-auto">
-                      {item.document}
-                    </div>
-                  </div>
-                )}
-
-                {/* FOOTER */}
-                <div className="flex items-center justify-between mt-6">
-
-                  <p className="text-xs text-gray-500">
-                    🕒{" "}
-                    {new Date(
-                      item.created_at
-                    ).toLocaleString()}
-                  </p>
-
-                  <button
-                    onClick={() =>
-                      handleDelete(item.id)
-                    }
-                    className="bg-red-500 hover:bg-red-600 px-3 py-1 rounded-lg text-sm"
-                  >
-                    🗑 Delete
-                  </button>
-                </div>
-              </motion.div>
-            ))}
+        {/* Step 1: Paste Incident Notes */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-6"
+        >
+          <div className="space-x-3 mb-2 text-sm font-medium">
+            <span>Step 1:</span>
+            <span>Paste Incident Notes</span>
           </div>
-        </div>
+          <textarea
+            value={rawNotes}
+            onChange={(e) => setRawNotes(e.target.value)}
+            placeholder="Paste your raw troubleshooting notes here...\n\nExample:\nPods entered CrashLoopBackOff after secret rotation. kubectl describe pod showed secret mount failures. Secret was accidentally deleted. Recreated secret and restarted deployment. Service recovered."
+            rows={8}
+            className="w-full px-4 py-3 rounded-xl bg-black/50 border border-white/10 focus:outline-none focus:ring-2 focus:ring-pink-500 text-white"
+          />
+        </motion.div>
+
+        {/* Step 2: Analyze Button */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-6"
+        >
+          <div className="flex justify-center">
+            <button
+              onClick={handleAnalyze}
+              disabled={analyzing || !rawNotes.trim()}
+              className={`px-8 py-3 rounded-xl font-semibold transition-all duration-200 text-white ${
+                analyzing
+                  ? "bg-gray-500 cursor-not-allowed"
+                  : "bg-pink-600 hover:bg-pink-700"
+              }`}
+            >
+              {analyzing ? "Analyzing..." : "Analyze Incident"}
+            </button>
+          </div>
+        </motion.div>
+
+        {/* Step 3: Show and Edit Extracted Data */}
+        {extracted && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-6"
+          >
+            <div className="space-x-3 mb-2 text-sm font-medium">
+              <span>Step 3:</span>
+              <span>Review and Edit Extracted Incident</span>
+            </div>
+
+            {/* Form fields */}
+            <div className="space-y-4">
+              {/* Title */}
+              <div>
+                <label className="block mb-1 text-sm font-medium">Title</label>
+                <input
+                  value={extracted.title}
+                  onChange={(e) =>
+                    setExtracted((prev) => prev ? { ...prev, title: e.target.value } : null)
+                  }
+                  className="w-full px-4 py-2 rounded-xl bg-black/50 border border-white/10 focus:outline-none focus:ring-2 focus:ring-pink-500 text-white"
+                />
+              </div>
+
+              {/* Summary */}
+              <div>
+                <label className="block mb-1 text-sm font-medium">Summary</label>
+                <textarea
+                  value={extracted.summary}
+                  onChange={(e) =>
+                    setExtracted((prev) => prev ? { ...prev, summary: e.target.value } : null)
+                  }
+                  rows={3}
+                  className="w-full px-4 py-2 rounded-xl bg-black/50 border border-white/10 focus:outline-none focus:ring-2 focus:ring-pink-500 text-white"
+                />
+              </div>
+
+              {/* Symptoms */}
+              <div>
+                <label className="block mb-1 text-sm font-medium">Symptoms (one per line)</label>
+                <textarea
+                  value={arrayToText(extracted.symptoms)}
+                  onChange={(e) =>
+                    setExtracted((prev) =>
+                      prev
+                        ? { ...prev, symptoms: textToArray(e.target.value) }
+                        : null
+                    )
+                  }
+                  rows={3}
+                  className="w-full px-4 py-2 rounded-xl bg-black/50 border border-white/10 focus:outline-none focus:ring-2 focus:ring-pink-500 text-white"
+                />
+              </div>
+
+              {/* Evidence */}
+              <div>
+                <label className="block mb-1 text-sm font-medium">Evidence (one per line)</label>
+                <textarea
+                  value={arrayToText(extracted.evidence)}
+                  onChange={(e) =>
+                    setExtracted((prev) =>
+                      prev ? { ...prev, evidence: textToArray(e.target.value) } : null
+                    )
+                  }
+                  rows={3}
+                  className="w-full px-4 py-2 rounded-xl bg-black/50 border border-white/10 focus:outline-none focus:ring-2 focus:ring-pink-500 text-white"
+                />
+              </div>
+
+              {/* Root Cause */}
+              <div>
+                <label className="block mb-1 text-sm font-medium">Root Cause (one per line)</label>
+                <textarea
+                  value={arrayToText(extracted.root_cause)}
+                  onChange={(e) =>
+                    setExtracted((prev) =>
+                      prev
+                        ? { ...prev, root_cause: textToArray(e.target.value) }
+                        : null
+                    )
+                  }
+                  rows={3}
+                  className="w-full px-4 py-2 rounded-xl bg-black/50 border border-white/10 focus:outline-none focus:ring-2 focus:ring-pink-500 text-white"
+                />
+              </div>
+
+              {/* Resolution */}
+              <div>
+                <label className="block mb-1 text-sm font-medium">Resolution (one per line)</label>
+                <textarea
+                  value={arrayToText(extracted.resolution)}
+                  onChange={(e) =>
+                    setExtracted((prev) =>
+                      prev
+                        ? { ...prev, resolution: textToArray(e.target.value) }
+                        : null
+                    )
+                  }
+                  rows={3}
+                  className="w-full px-4 py-2 rounded-xl bg-black/50 border border-white/10 focus:outline-none focus:ring-2 focus:ring-pink-500 text-white"
+                />
+              </div>
+
+              {/* Commands Used */}
+              <div>
+                <label className="block mb-1 text-sm font-medium">Commands Used (one per line)</label>
+                <textarea
+                  value={arrayToText(extracted.commands_used)}
+                  onChange={(e) =>
+                    setExtracted((prev) =>
+                      prev
+                        ? { ...prev, commands_used: textToArray(e.target.value) }
+                        : null
+                    )
+                  }
+                  rows={3}
+                  className="w-full px-4 py-2 rounded-xl bg-black/50 border border-white/10 focus:outline-none focus:ring-2 focus:ring-pink-500 text-white"
+                />
+              </div>
+
+              {/* Prevention */}
+              <div>
+                <label className="block mb-1 text-sm font-medium">Prevention (one per line)</label>
+                <textarea
+                  value={arrayToText(extracted.prevention)}
+                  onChange={(e) =>
+                    setExtracted((prev) =>
+                      prev
+                        ? { ...prev, prevention: textToArray(e.target.value) }
+                        : null
+                    )
+                  }
+                  rows={3}
+                  className="w-full px-4 py-2 rounded-xl bg-black/50 border border-white/10 focus:outline-none focus:ring-2 focus:ring-pink-500 text-white"
+                />
+              </div>
+
+              {/* Tags */}
+              <div>
+                <label className="block mb-1 text-sm font-medium">Tags (comma-separated)</label>
+                <input
+                  value={extracted.tags.join(", ")}
+                  onChange={(e) =>
+                    setExtracted((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            tags: e.target.value
+                              .split(",")
+                              .map((tag) => tag.trim())
+                              .filter(Boolean),
+                          }
+                        : null
+                    )
+                  }
+                  className="w-full px-4 py-2 rounded-xl bg-black/50 border border-white/10 focus:outline-none focus:ring-2 focus:ring-pink-500 text-white"
+                />
+              </div>
+
+              {/* Severity */}
+              <div>
+                <label className="block mb-1 text-sm font-medium">Severity</label>
+                <select
+                  value={extracted.severity}
+                  onChange={(e) =>
+                    setExtracted((prev) => prev ? { ...prev, severity: e.target.value } : null)
+                  }
+                  className="w-full px-4 py-2 rounded-xl bg-black/50 border border-white/10 focus:outline-none focus:ring-2 focus:ring-pink-500 text-white"
+                >
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                  <option value="critical">Critical</option>
+                </select>
+              </div>
+
+              {/* Environment */}
+              <div>
+                <label className="block mb-1 text-sm font-medium">Environment</label>
+                <input
+                  value={extracted.environment}
+                  onChange={(e) =>
+                    setExtracted((prev) =>
+                      prev ? { ...prev, environment: e.target.value } : null
+                    )
+                  }
+                  className="w-full px-4 py-2 rounded-xl bg-black/50 border border-white/10 focus:outline-none focus:ring-2 focus:ring-pink-500 text-white"
+                />
+              </div>
+
+              {/* Services Affected */}
+              <div>
+                <label className="block mb-1 text-sm font-medium">Services Affected (one per line)</label>
+                <textarea
+                  value={arrayToText(extracted.services_affected)}
+                  onChange={(e) =>
+                    setExtracted((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            services_affected: textToArray(e.target.value),
+                          }
+                        : null
+                    )
+                  }
+                  rows={2}
+                  className="w-full px-4 py-2 rounded-xl bg-black/50 border border-white/10 focus:outline-none focus:ring-2 focus:ring-pink-500 text-white"
+                />
+              </div>
+
+              {/* Lessons Learned */}
+              <div>
+                <label className="block mb-1 text-sm font-medium">Lessons Learned</label>
+                <textarea
+                  value={extracted.lessons_learned}
+                  onChange={(e) =>
+                    setExtracted((prev) =>
+                      prev ? { ...prev, lessons_learned: e.target.value } : null
+                    )
+                  }
+                  rows={3}
+                  className="w-full px-4 py-2 rounded-xl bg-black/50 border border-white/10 focus:outline-none focus:ring-2 focus:ring-pink-500 text-white"
+                />
+              </div>
+            </div>
+
+            {/* Step 4: Save Button */}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-6"
+            >
+              <div className="flex justify-center">
+                <button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className={`px-8 py-3 rounded-xl font-semibold transition-all duration-200 text-white ${
+                    saving
+                      ? "bg-gray-500 cursor-not-allowed"
+                      : "bg-purple-600 hover:bg-purple-700"
+                  }`}
+                >
+                  {saving ? "Saving..." : "Save Incident"}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+
+        {/* Optional: Show saved incident ID */}
+        {incidentId && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mt-6 px-4 py-2 rounded-lg bg-black/50 text-center text-sm"
+          >
+            Incident saved with ID: <span className="font-semibold text-pink-300">{incidentId}</span>
+          </motion.div>
+        )}
       </div>
     </div>
   );
